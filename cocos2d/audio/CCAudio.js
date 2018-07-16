@@ -91,6 +91,7 @@ Audio.State = {
         if (!src) {
             this._src = '';
             this._audioType = Audio.Type.UNKNOWN;
+            CC_WECHATGAME && this._element && this._element.destroy();
             this._element = null;
             this._state = Audio.State.INITIALZING;
             this._loaded = false;
