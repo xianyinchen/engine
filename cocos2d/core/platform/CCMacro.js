@@ -388,6 +388,12 @@ cc.macro = {
      */
     ENABLE_NATIVE_TTF_RENDERER: true
 
+    /**
+     * Improved TTF obvious.
+     * @property TTF_OBVIOUS_SCALE
+     * @type {Number}
+     */
+    TTF_OBVIOUS_SCALE: 2  
 };
 
 Object.defineProperty(cc.macro, 'ROTATE_ACTION_CCW', {

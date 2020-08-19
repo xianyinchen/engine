@@ -109,6 +109,8 @@ export default class TTFAssembler extends Assembler2D {
         this._calDynamicAtlas(comp);
 
         comp._actualFontSize = _fontSize;
+        _nodeContentSize.width = _nodeContentSize.width/cc.macro.TTF_OBVIOUS_SCALE;
+        _nodeContentSize.height = _nodeContentSize.height/cc.macro.TTF_OBVIOUS_SCALE;
         comp.node.setContentSize(_nodeContentSize);
 
         this.updateVerts(comp);
@@ -158,14 +160,14 @@ export default class TTFAssembler extends Assembler2D {
         _texture = comp._frame._original ? comp._frame._original._texture : comp._frame._texture;
 
         _string = comp.string.toString();
-        _fontSize = comp._fontSize;
+        _fontSize = comp._fontSize * cc.macro.TTF_OBVIOUS_SCALE;
         _drawFontSize = _fontSize;
         _underlineThickness = comp.underlineHeight || _drawFontSize / 8;
         _overflow = comp.overflow;
-        _canvasSize.width = comp.node.width;
-        _canvasSize.height = comp.node.height;
+        _canvasSize.width = comp.node.width * cc.macro.TTF_OBVIOUS_SCALE;
+        _canvasSize.height = comp.node.height * cc.macro.TTF_OBVIOUS_SCALE;
         _nodeContentSize = comp.node.getContentSize();
-        _lineHeight = comp._lineHeight;
+        _lineHeight = comp._lineHeight * cc.macro.TTF_OBVIOUS_SCALE;
         _hAlign = comp.horizontalAlign;
         _vAlign = comp.verticalAlign;
         _color = comp.node.color;

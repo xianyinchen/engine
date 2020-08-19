@@ -51,8 +51,8 @@ export default class WebglTTFAssembler extends TTFAssembler {
 
     updateVerts (comp) {
         let node = comp.node,
-            canvasWidth = comp._ttfTexture.width,
-            canvasHeight = comp._ttfTexture.height,
+            canvasWidth = comp._ttfTexture.width/cc.macro.TTF_OBVIOUS_SCALE,
+            canvasHeight = comp._ttfTexture.height/cc.macro.TTF_OBVIOUS_SCALE,
             appx = node.anchorX * node.width,
             appy = node.anchorY * node.height;
 
