@@ -217,24 +217,19 @@ Object.assign(WebEditBoxImpl.prototype, {
         this._updateMaxLength();
         this._updateInputType();
         this._updateStyleSheet();
-
+        this._updateMatrix(true);
         this._elem.style.display = '';
         this._delegate._hideLabels();
-        
         if (cc.sys.isMobile) {
             this._showDomOnMobile();
         }
     },
 
     _hideDom () {
-        let elem = this._elem;
-
-        elem.style.display = 'none';
         this._delegate._showLabels();
-        
-        if (cc.sys.isMobile) {
-            this._hideDomOnMobile();
-        }
+        var elem = this._elem;
+        elem.style["transform"] = 'translate(0px, 18400px)';
+        elem.style["-webkit-transform"] = 'translate(0px, 18400px)';
     },
 
     _showDomOnMobile () {
@@ -325,7 +320,7 @@ Object.assign(WebEditBoxImpl.prototype, {
         return true;
     },
 
-    _updateMatrix () {    
+    _updateMatrix(force) {
         if (CC_EDITOR || !this._updateCameraMatrix()) {
             return;
         }
@@ -337,7 +332,7 @@ Object.assign(WebEditBoxImpl.prototype, {
             this._m04 === cameraMatm[4] && this._m05 === cameraMatm[5] &&
             this._m12 === cameraMatm[12] && this._m13 === cameraMatm[13] &&
             this._w === node._contentSize.width && this._h === node._contentSize.height &&
-            this._cacheViewportRect.equals(localView._viewportRect)) {
+            !force && this._cacheViewportRect.equals(localView._viewportRect)) {
             return;
         }
 
