@@ -81,7 +81,7 @@ export class SkeletalAnimationState extends AnimationState {
         }
         this._parent = root.getComponent('cc.SkeletalAnimation') as SkeletalAnimation;
         const baked = this._parent.useBakedAnimation;
-        super.initialize(root, baked ? noCurves : undefined);
+        super.initialize(root, baked ? noCurves : undefined!, true);
         this._curvesInited = !baked;
         const info = SkelAnimDataHub.getOrExtract(this.clip).info;
         this._frames = info.frames - 1;
@@ -104,7 +104,7 @@ export class SkeletalAnimationState extends AnimationState {
             this.duration = this._clip.duration;
             if (!this._curvesInited) {
                 this._curveLoaded = false;
-                super.initialize(this._targetNode!);
+                super.initialize(this._targetNode!, undefined!, true);
                 this._curvesInited = true;
             }
         }

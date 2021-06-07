@@ -339,12 +339,12 @@ export class AnimationState extends Playable {
         return this._curveLoaded;
     }
 
-    public initialize (root: Node, propertyCurves?: readonly IRuntimeCurve[]) {
+    public initialize (root: Node, propertyCurves: readonly IRuntimeCurve[], blending:boolean) {
         if (this._curveLoaded) { return; }
         this._curveLoaded = true;
         this._destroyBlendStateWriters();
         this._samplerSharedGroups.length = 0;
-        this._blendStateBuffer = legacyCC.director.getAnimationManager()?.blendState ?? null;
+        this._blendStateBuffer = blending ? legacyCC.director.getAnimationManager()?.blendState : null;
         if (this._blendStateBuffer) {
             this._blendStateBuffer.bindState(this);
         }
