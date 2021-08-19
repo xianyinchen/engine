@@ -142,13 +142,24 @@ function doInstantiate (obj, parent) {
     }
     else if (obj.constructor) {
         var klass = obj.constructor;
+        cc._not_ext_ctor = (klass.__ext_ctors__ != null);
         clone = new klass();
+        cc._not_ext_ctor = false;
     }
     else {
         clone = Object.create(null);
     }
 
     enumerateObject(obj, clone, parent);
+    
+    if (obj.constructor) {
+        var klass = obj.constructor;
+        if (klass.__ext_ctors__) {
+            for (let i = 0; i < klass.__ext_ctors__.length; ++i) {
+                klass.__ext_ctors__[i].apply(clone);
+            }
+        }
+    }
 
     for (var i = 0, len = objsToClearTmpVar.length; i < len; ++i) {
         objsToClearTmpVar[i]._iN$t = null;
@@ -283,7 +294,10 @@ function instantiateObj (obj, parent) {
                 }
             }
         }
+
+        cc._not_ext_ctor = (ctor.__ext_ctors__ != null);
         clone = new ctor();
+        cc._not_ext_ctor = false;
     }
     else if (ctor === Object) {
         clone = {};
@@ -296,6 +310,13 @@ function instantiateObj (obj, parent) {
         return obj;
     }
     enumerateObject(obj, clone, parent);
+
+    if (ctor && ctor.__ext_ctors__) {
+        for (let i = 0; i < ctor.__ext_ctors__.length; ++i) {
+            ctor.__ext_ctors__[i].apply(clone);
+        }
+    }
+
     return clone;
 }
 

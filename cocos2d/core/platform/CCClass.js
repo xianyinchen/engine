@@ -280,8 +280,13 @@ function doDefine (className, baseClass, mixins, options) {
         }, true);
     }
 
-    js.value(fireClass, '__ctors__', ctors.length > 0 ? ctors : null, true);
+    var __ext_ctors__ = [];
+    for (let i = 3; i < ctors.length; ++i) {
+        __ext_ctors__.push(ctors[i]);
+    }
 
+    js.value(fireClass, '__ctors__', ctors.length > 0 ? ctors : null, true);
+    js.value(fireClass, "__ext_ctors__", __ext_ctors__, true);
 
     var prototype = fireClass.prototype;
     if (baseClass) {
@@ -614,9 +619,16 @@ var _createCtor = CC_SUPPORT_JIT ? function (ctors, baseClass, className, option
         }
         else {
             body += 'var cs=' + ctorName + '.__ctors__;\n';
+            body += `if (cc._not_ext_ctor) {\n`
+            var cut = ctorLen >= 3 ? 3 : ctorLen;
+            for (var i = 0; i < cut; i++) {
+                body += 'cs[' + i + SNIPPET;
+            }
+            body += `}\nelse{\n`
             for (var i = 0; i < ctorLen; i++) {
                 body += 'cs[' + i + SNIPPET;
             }
+            body += `}\n`
         }
         if (useTryCatch) {
             body += '}catch(e){\n' +
