@@ -29,8 +29,10 @@
 #import <Foundation/Foundation.h>
 
 #include "network/Downloader.h"
+#include "application/ApplicationManager.h"
 #include "base/UTF8.h"
-
+#include "base/Log.h"
+#include "platform/FileUtils.h"
 ////////////////////////////////////////////////////////////////////////////////
 //  OC Classes Declaration
 
@@ -62,6 +64,7 @@
 - (const cc::network::DownloaderHints &)getHints;
 - (NSURLSessionDataTask *)createDataTask:(std::shared_ptr<const cc::network::DownloadTask> &)task;
 - (NSURLSessionDownloadTask *)createFileTask:(std::shared_ptr<const cc::network::DownloadTask> &)task;
+- (void)saveResumeData:(NSData *)resumeData forTaskStoragePath:(const std::string &) path;
 - (void)abort:(NSURLSessionTask *)task;
 - (void)doDestroy;
 
@@ -101,11 +104,11 @@ DownloaderApple::~DownloaderApple() {
 IDownloadTask *DownloaderApple::createCoTask(std::shared_ptr<const DownloadTask> &task) {
     DownloadTaskApple *coTask = new (std::nothrow) DownloadTaskApple();
     DeclareDownloaderImplVar;
-    if (task->storagePath.length()) {
-        coTask->downloadTask = [impl createFileTask:task];
-    } else {
-        coTask->dataTask = [impl createDataTask:task];
-    }
+        if (task->storagePath.length()) {
+            coTask->downloadTask = [impl createFileTask:task];
+        } else {
+           coTask->dataTask = [impl createDataTask:task];
+        }
     return coTask;
 }
 void DownloaderApple::abort(const std::unique_ptr<IDownloadTask> &task) {
@@ -180,7 +183,7 @@ void DownloaderApple::abort(const std::unique_ptr<IDownloadTask> &task) {
 @end
 
 @implementation DownloaderAppleImpl
-
+static int tag = 0;
 - (id)init:(const cc::network::DownloaderApple *)o hints:(const cc::network::DownloaderHints &)hints {
     DLLOG("Construct DownloaderAppleImpl %p", self);
     // save outer task ref
@@ -191,9 +194,35 @@ void DownloaderApple::abort(const std::unique_ptr<IDownloadTask> &task) {
     self.taskDict = [NSMutableDictionary dictionary];
 
     // create download session
-    NSURLSessionConfiguration *defaultConfig = [NSURLSessionConfiguration defaultSessionConfiguration];
-    self.downloadSession = [NSURLSession sessionWithConfiguration:defaultConfig delegate:self delegateQueue:[NSOperationQueue mainQueue]];
+//     NSURLSessionConfiguration *defaultConfig = [NSURLSessionConfiguration defaultSessionConfiguration];
+//     self.downloadSession = [NSURLSession sessionWithConfiguration:defaultConfig delegate:self delegateQueue:[NSOperationQueue mainQueue]];
     //    self.downloadSession.sessionDescription = kCurrentSession;
+    
+    // use backgroundSession to support background download
+    // Single thread delegate mode
+    NSOperationQueue *queue = [[NSOperationQueue alloc] init];
+    queue.maxConcurrentOperationCount = 1;
+    
+    NSString* identifierStr = [NSString stringWithFormat:@"%s%d", "BackgroundDownloadIdentifier" , tag];
+    NSURLSessionConfiguration *backgroudConfig = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier:identifierStr];
+    tag++;
+    self.downloadSession = [NSURLSession sessionWithConfiguration:backgroudConfig delegate:self delegateQueue:queue];
+    
+    [self.downloadSession getTasksWithCompletionHandler:^(NSArray *dataTasks, NSArray *uploadTasks, NSArray *downloadTasks) {
+        for (NSURLSessionDownloadTask *downloadTask in downloadTasks) {
+            NSLog(@"%ld", (long)downloadTask.state);
+            NSLog(@"%@", downloadTask.originalRequest.URL.absoluteString);
+            NSLog(@"%@", downloadTask.currentRequest.URL.absoluteString);
+            // cancelTask with resume Data
+            if ((long)downloadTask.state == 0) {
+                [(NSURLSessionDownloadTask *)downloadTask cancelByProducingResumeData:^(NSData *resumeData) {
+                    CC_LOG_INFO("use cancelByProducingResumeData to cancel old task and stroage");
+                }];
+            }
+            
+        }
+    }];
+    
     return self;
 }
 
@@ -226,6 +255,8 @@ void DownloaderApple::abort(const std::unique_ptr<IDownloadTask> &task) {
 };
 
 - (NSURLSessionDownloadTask *)createFileTask:(std::shared_ptr<const cc::network::DownloadTask> &)task {
+    // callback has delay, sleepForTimeInterval to ensure obtain resumeData for break-point transmission
+    [NSThread sleepForTimeInterval:0.3f];
     const char *urlStr = task->requestURL.c_str();
     DLLOG("DownloaderAppleImpl createFileTask: %s", urlStr);
     NSURL *url = [NSURL URLWithString:[NSString stringWithUTF8String:urlStr]];
@@ -242,9 +273,15 @@ void DownloaderApple::abort(const std::unique_ptr<IDownloadTask> &task) {
     }
     NSString *tempFilePath = [NSString stringWithFormat:@"%s%s", task->storagePath.c_str(), _hints.tempFileNameSuffix.c_str()];
     NSData *resumeData = [NSData dataWithContentsOfFile:tempFilePath];
+
+    NSString *tempFilePathWithHash = [NSString stringWithFormat:@"%s%lu%s", cc::FileUtils::getInstance()->getWritablePath().c_str(), (unsigned long)[url hash], _hints.tempFileNameSuffix.c_str()];
+    NSData *resumeData2 = [NSData dataWithContentsOfFile:tempFilePathWithHash];
+
     NSURLSessionDownloadTask *ocTask = nil;
     if (resumeData && task->header.size() <= 0) {
         ocTask = [self.downloadSession downloadTaskWithResumeData:resumeData];
+    } else if (resumeData2 && task->header.size() <= 0) {
+        ocTask = [self.downloadSession downloadTaskWithResumeData:resumeData2];
     } else {
         ocTask = [self.downloadSession downloadTaskWithRequest:request];
     }
@@ -262,6 +299,28 @@ void DownloaderApple::abort(const std::unique_ptr<IDownloadTask> &task) {
     return ocTask;
 };
 
+- (void)saveResumeData:(NSData *)resumeData forTaskStoragePath:(const std::string &) path {
+    NSString *tempFilePath = [NSString stringWithFormat:@"%s%s", path.c_str(), _hints.tempFileNameSuffix.c_str()];
+    NSString *tempFileDir = [tempFilePath stringByDeletingLastPathComponent];
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    BOOL isDir = false;
+    if ([fileManager fileExistsAtPath:tempFileDir isDirectory:&isDir]) {
+        if (NO == isDir) {
+            // REFINE: the directory is a file, not a directory, how to echo to developer?
+            DLLOG("DownloaderAppleImpl temp dir is a file!");
+            return;
+        }
+    } else {
+        NSURL *tempFileURL = [NSURL fileURLWithPath:tempFileDir];
+        if (NO == [fileManager createDirectoryAtURL:tempFileURL withIntermediateDirectories:YES attributes:nil error:nil]) {
+            // create directory failed
+            DLLOG("DownloaderAppleImpl create temp dir failed");
+            return;
+        }
+    }
+    [resumeData writeToFile:tempFilePath atomically:YES];
+}
+
 - (void)abort:(NSURLSessionTask *)task {
     // cancel all download task
     NSEnumerator *enumeratorKey = [self.taskDict keyEnumerator];
@@ -278,25 +337,7 @@ void DownloaderApple::abort(const std::unique_ptr<IDownloadTask> &task) {
         } else {
             [(NSURLSessionDownloadTask *)taskKey cancelByProducingResumeData:^(NSData *resumeData) {
                 if (resumeData) {
-                    NSString *tempFilePath = [NSString stringWithFormat:@"%s%s", storagePath.c_str(), _hints.tempFileNameSuffix.c_str()];
-                    NSString *tempFileDir = [tempFilePath stringByDeletingLastPathComponent];
-                    NSFileManager *fileManager = [NSFileManager defaultManager];
-                    BOOL isDir = false;
-                    if ([fileManager fileExistsAtPath:tempFileDir isDirectory:&isDir]) {
-                        if (NO == isDir) {
-                            // REFINE: the directory is a file, not a directory, how to echo to developer?
-                            DLLOG("DownloaderAppleImpl temp dir is a file!");
-                            return;
-                        }
-                    } else {
-                        NSURL *tempFileURL = [NSURL fileURLWithPath:tempFileDir];
-                        if (NO == [fileManager createDirectoryAtURL:tempFileURL withIntermediateDirectories:YES attributes:nil error:nil]) {
-                            // create directory failed
-                            DLLOG("DownloaderAppleImpl create temp dir failed");
-                            return;
-                        }
-                    }
-                    [resumeData writeToFile:tempFilePath atomically:YES];
+                    [self saveResumeData:resumeData forTaskStoragePath:storagePath];
                 }
             }];
         }
@@ -317,26 +358,7 @@ void DownloaderApple::abort(const std::unique_ptr<IDownloadTask> &task) {
         } else {
             [task cancelByProducingResumeData:^(NSData *resumeData) {
                 if (resumeData) {
-                    NSString *tempFilePath = [NSString stringWithFormat:@"%s%s", storagePath.c_str(), _hints.tempFileNameSuffix.c_str()];
-                    NSString *tempFileDir = [tempFilePath stringByDeletingLastPathComponent];
-                    NSFileManager *fileManager = [NSFileManager defaultManager];
-                    BOOL isDir = false;
-                    if ([fileManager fileExistsAtPath:tempFileDir isDirectory:&isDir]) {
-                        if (NO == isDir) {
-                            // REFINE: the directory is a file, not a directory, how to echo to developer?
-                            DLLOG("DownloaderAppleImpl temp dir is a file!");
-                            return;
-                        }
-                    } else {
-                        NSURL *tempFileURL = [NSURL fileURLWithPath:tempFileDir];
-                        if (NO == [fileManager createDirectoryAtURL:tempFileURL withIntermediateDirectories:YES attributes:nil error:nil]) {
-                            // create directory failed
-                            DLLOG("DownloaderAppleImpl create temp dir failed");
-                            return;
-                        }
-                    }
-
-                    [resumeData writeToFile:tempFilePath atomically:YES];
+                    [self saveResumeData:resumeData forTaskStoragePath:storagePath];
                 }
             }];
         }
@@ -408,52 +430,70 @@ void DownloaderApple::abort(const std::unique_ptr<IDownloadTask> &task) {
     // clean wrapper C++ object
     DownloadTaskWrapper *wrapper = [self.taskDict objectForKey:task];
 
-    if (_outer) {
-        if (error) {
-            int errorCode = (int)error.code;
-            NSString *errorMsg = error.localizedDescription;
-            if (error.code == NSURLErrorCancelled) {
-                //cancel
-                errorCode = cc::network::DownloadTask::ERROR_ABORT;
-                errorMsg = @"downloadFile:fail abort";
-            }
-            std::vector<unsigned char> buf; // just a placeholder
-            _outer->onTaskFinish(*[wrapper get],
-                                 cc::network::DownloadTask::ERROR_IMPL_INTERNAL,
-                                 errorCode,
-                                 [errorMsg cStringUsingEncoding:NSUTF8StringEncoding],
-                                 buf);
-        } else if (![wrapper get]->storagePath.length()) {
-            // call onTaskFinish for a data task
-            // (for a file download task, callback is called in didFinishDownloadingToURL)
-            std::string errorString;
-
-            const int64_t buflen = [wrapper totalBytesReceived];
-            std::vector<unsigned char> data((size_t)buflen);
-            char *buf = (char *)data.data();
-            [wrapper transferDataToBuffer:buf lengthOfBuffer:buflen];
-
-            _outer->onTaskFinish(*[wrapper get],
-                                 cc::network::DownloadTask::ERROR_NO_ERROR,
-                                 0,
-                                 errorString,
-                                 data);
-        } else {
-            NSInteger statusCode = ((NSHTTPURLResponse *)task.response).statusCode;
-
-            // Check for error status code
-            if (statusCode >= 400) {
-                std::vector<unsigned char> buf; // just a placeholder
-                const char *originalURL = [task.originalRequest.URL.absoluteString cStringUsingEncoding:NSUTF8StringEncoding];
-                std::string errorMessage = cc::StringUtils::format("Downloader: Failed to download %s with status code (%d)", originalURL, (int)statusCode);
-
+    if (wrapper) {
+        if (_outer) {
+              int errorCode = (int)error.code;
+              NSString *errorMsg = error.localizedDescription;
+              if (error.code == NSURLErrorCancelled) {
+                  //cancel
+                  errorCode = cc::network::DownloadTask::ERROR_ABORT;
+                  errorMsg = @"downloadFile:fail abort";
+              }
+              std::vector<unsigned char> buf; // just a placeholder
+            CC_CURRENT_ENGINE()->getScheduler()->performFunctionInCocosThread([=]() {
                 _outer->onTaskFinish(*[wrapper get],
                                      cc::network::DownloadTask::ERROR_IMPL_INTERNAL,
-                                     0,
-                                     errorMessage,
-                                     buf);
+                                     errorCode,
+                                     [errorMsg cStringUsingEncoding:NSUTF8StringEncoding],
+                                     buf);});
+            } else if (![wrapper get]->storagePath.length()) {
+                // call onTaskFinish for a data task
+                // (for a file download task, callback is called in didFinishDownloadingToURL)
+                std::string errorString;
+
+                const int64_t buflen = [wrapper totalBytesReceived];
+                std::vector<unsigned char> data((size_t)buflen);
+                char *buf = (char *)data.data();
+                [wrapper transferDataToBuffer:buf lengthOfBuffer:buflen];
+                
+                CC_CURRENT_ENGINE()->getScheduler()->performFunctionInCocosThread([=]() {
+                    _outer->onTaskFinish(*[wrapper get],
+                                         cc::network::DownloadTask::ERROR_NO_ERROR,
+                                         0,
+                                         errorString,
+                                         data);
+                });
+      
+            } else {
+                NSInteger statusCode = ((NSHTTPURLResponse *)task.response).statusCode;
+
+                // Check for error status code
+                if (statusCode >= 400) {
+                    std::vector<unsigned char> buf; // just a placeholder
+                    const char *originalURL = [task.originalRequest.URL.absoluteString cStringUsingEncoding:NSUTF8StringEncoding];
+                    std::string errorMessage = cc::StringUtils::format("Downloader: Failed to download %s with status code (%d)", originalURL, (int)statusCode);
+
+                    CC_CURRENT_ENGINE()->getScheduler()->performFunctionInCocosThread([=]() {
+                        _outer->onTaskFinish(*[wrapper get],
+                                             cc::network::DownloadTask::ERROR_IMPL_INTERNAL,
+                                             0,
+                                             errorMessage,
+                                             buf);
+                    });
+                }
             }
-        }
+    }
+    if (error) {
+                if ([error.userInfo objectForKey:NSURLSessionDownloadTaskResumeData]) {
+                NSData *resumeData = [error.userInfo objectForKey:NSURLSessionDownloadTaskResumeData];
+
+                    if([error.userInfo objectForKey:NSURLErrorFailingURLStringErrorKey]) {
+                        NSString *url = [error.userInfo objectForKey:NSURLErrorFailingURLStringErrorKey];
+                        NSLog(@"url:%@",url);
+                        NSString *tempFilePath = [NSString stringWithFormat:@"%s%lu%s", cc::FileUtils::getInstance()->getWritablePath().c_str(), (unsigned long)[url hash], _hints.tempFileNameSuffix.c_str()];
+                        [resumeData writeToFile:tempFilePath atomically:YES];
+                    }
+            }
     }
     [self.taskDict removeObjectForKey:task];
 
@@ -511,11 +551,14 @@ void DownloaderApple::abort(const std::unique_ptr<IDownloadTask> &task) {
         return [wrapper transferDataToBuffer:buffer lengthOfBuffer:bufLen];
     };
 
-    _outer->onTaskProgress(*[wrapper get],
-                           wrapper.bytesReceived,
-                           wrapper.totalBytesReceived,
-                           dataTask.countOfBytesExpectedToReceive,
-                           transferDataToBuffer);
+    CC_CURRENT_ENGINE()->getScheduler()->performFunctionInCocosThread([=]() mutable {
+        _outer->onTaskProgress(*[wrapper get],
+                               wrapper.bytesReceived,
+                               wrapper.totalBytesReceived,
+                               dataTask.countOfBytesExpectedToReceive,
+                               transferDataToBuffer);
+    });
+
 }
 
 /* Invoke the completion routine with a valid NSCachedURLResponse to
@@ -598,7 +641,9 @@ void DownloaderApple::abort(const std::unique_ptr<IDownloadTask> &task) {
         }
     }
     std::vector<unsigned char> buf; // just a placeholder
-    _outer->onTaskFinish(*[wrapper get], errorCode, errorCodeInternal, errorString, buf);
+    CC_CURRENT_ENGINE()->getScheduler()->performFunctionInCocosThread([=]() {
+        _outer->onTaskFinish(*[wrapper get], errorCode, errorCodeInternal, errorString, buf);
+    });
 }
 
 // @optional
@@ -614,9 +659,13 @@ void DownloaderApple::abort(const std::unique_ptr<IDownloadTask> &task) {
     }
 
     DownloadTaskWrapper *wrapper = [self.taskDict objectForKey:downloadTask];
-
+    
     std::function<int64_t(void *, int64_t)> transferDataToBuffer; // just a placeholder
-    _outer->onTaskProgress(*[wrapper get], bytesWritten, totalBytesWritten, totalBytesExpectedToWrite, transferDataToBuffer);
+    if (wrapper) {
+        CC_CURRENT_ENGINE()->getScheduler()->performFunctionInCocosThread([=]() mutable {
+            _outer->onTaskProgress(*[wrapper get], bytesWritten, totalBytesWritten, totalBytesExpectedToWrite, transferDataToBuffer);
+        });
+    }
 }
 
 /* Sent when a download has been resumed. If a download failed with an
@@ -627,9 +676,24 @@ void DownloaderApple::abort(const std::unique_ptr<IDownloadTask> &task) {
 - (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask
      didResumeAtOffset:(int64_t)fileOffset
     expectedTotalBytes:(int64_t)expectedTotalBytes {
-    // NSLog(@"[REFINE]DownloaderAppleImpl downloadTask: \"%@\" didResumeAtOffset: %lld", downloadTask.originalRequest.URL, fileOffset);
+     NSLog(@"[REFINE]DownloaderAppleImpl downloadTask: \"%@\" didResumeAtOffset: %lld", downloadTask.originalRequest.URL, fileOffset);
     // 下载失败
     //    self.downloadFail([self getDownloadRespose:XZDownloadFail identifier:self.identifier progress:0.00 downloadUrl:nil downloadSaveFileUrl:nil downloadData:nil downloadResult:@"下载失败"]);
 }
+
+//// 应用处于后台，所有下载任务完成及NSURLSession协议调用之后调用
+//- (void)URLSessionDidFinishEventsForBackgroundURLSession:(NSURLSession *)session
+//{
+//    dispatch_async(dispatch_get_main_queue(), ^{
+//        AppDelegate *appDelegate = (AppDelegate *)[[UIApplication sharedApplication] delegate];
+//        if (appDelegate.backgroundSessionCompletionHandler) {
+//            void (^completionHandler)(void) = appDelegate.backgroundSessionCompletionHandler;
+//            appDelegate.backgroundSessionCompletionHandler = nil;
+//
+//            // 执行block，系统后台生成快照，释放阻止应用挂起的断言
+//            completionHandler();
+//        }
+//    });
+//}
 
 @end
