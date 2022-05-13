@@ -615,6 +615,7 @@ export default class TrailModule {
             subModel.inputAssembler.vertexBuffers[0].update(this._vbF32!);
             subModel.inputAssembler.indexBuffer!.update(this._iBuffer!);
             this._iaInfo.drawInfos[0].firstIndex = 0;
+            this._iaInfo.drawInfos[0].vertexCount = 0;
             this._iaInfo.drawInfos[0].indexCount = count;
             this._iaInfoBuffer!.update(this._iaInfo);
         }
