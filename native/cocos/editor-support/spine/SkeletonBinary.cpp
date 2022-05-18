@@ -530,23 +530,37 @@ Attachment *SkeletonBinary::readAttachment(DataInput *input, Skin *skin, int slo
             String path(readStringRef(input, skeletonData));
             if (path.isEmpty()) path = name;
 
-            mesh = _attachmentLoader->newMeshAttachment(*skin, String(name), String(path));
-            mesh->_path = path;
-            readColor(input, mesh->getColor());
+            MeshAttachment temp("--");
+            spine::Color color;
+            readColor(input, color);
             vertexCount = readVarint(input, true);
-            readFloatArray(input, vertexCount << 1, 1, mesh->getRegionUVs());
-            readShortArray(input, mesh->getTriangles());
-            readVertices(input, static_cast<VertexAttachment *>(mesh), vertexCount);
-            mesh->updateUVs();
-            mesh->_hullLength = readVarint(input, true) << 1;
+            readFloatArray(input, vertexCount << 1, 1, temp.getUVs());
+            readShortArray(input, temp.getTriangles());
+            readVertices(input, &temp, vertexCount);
+            temp._hullLength = readVarint(input, true) << 1;
+
             if (nonessential) {
-                readShortArray(input, mesh->getEdges());
-                mesh->_width = readFloat(input) * _scale;
-                mesh->_height = readFloat(input) * _scale;
-            } else {
-                mesh->_width = 0;
-                mesh->_height = 0;
+                readShortArray(input, temp.getEdges());
+                temp._width = readFloat(input) * _scale;
+                temp._width = readFloat(input) * _scale;
             }
+
+            mesh = _attachmentLoader->newMeshAttachment(*skin, String(name), String(path));
+            if (NULL == mesh) {
+                return NULL;
+            }
+
+            mesh->_path = path;
+            mesh->getColor().set(color);
+            mesh->getRegionUVs().clearAndAddAll(temp.getUVs());
+            mesh->getTriangles().clearAndAddAll(temp.getTriangles());
+            mesh->getVertices().clearAndAddAll(temp.getVertices());
+            mesh->getBones().clearAndAddAll(temp.getBones());
+            mesh->getEdges().clearAndAddAll(temp.getEdges());
+            mesh->updateUVs();
+            mesh->_hullLength = temp._hullLength;
+            mesh->_width = temp._width;
+            mesh->_height = temp._height;
             _attachmentLoader->configureAttachment(mesh);
             return mesh;
         }
