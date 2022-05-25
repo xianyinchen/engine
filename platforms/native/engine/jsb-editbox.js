@@ -33,6 +33,7 @@
     const InputMode = EditBox.InputMode;
     const InputFlag = EditBox.InputFlag;
 
+    let currentInstnce = null;
     let worldMat = cc.mat4();
 
     function getInputType (type) {
@@ -81,6 +82,11 @@
         }
 
         beginEditing () {
+            if (currentInstnce != this && currentInstnce && currentInstnce._delegate) {
+                currentInstnce.endEditing();
+            }
+
+            currentInstnce = this;
             let self = this;
             let delegate = this._delegate;
             let multiline = (delegate.inputMode === InputMode.ANY);
@@ -135,7 +141,8 @@
         }
 
         endEditing () {
-            this._editing = false;
+            currentInstnce = null;
+            this._editing = false;            
             if (!cc.sys.isMobile) {
                 this._delegate._showLabels();
             }
