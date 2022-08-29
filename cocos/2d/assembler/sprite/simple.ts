@@ -206,12 +206,12 @@ export const simple: IAssembler = {
         const uv = sprite.spriteFrame.uv;
         vData[3] = uv[0];
         vData[4] = uv[1];
-        vData[12] = uv[2];
-        vData[13] = uv[3];
-        vData[21] = uv[4];
-        vData[22] = uv[5];
-        vData[30] = uv[6];
-        vData[31] = uv[7];
+        vData[9] = uv[2];
+        vData[10] = uv[3];
+        vData[15] = uv[4];
+        vData[16] = uv[5];
+        vData[21] = uv[6];
+        vData[22] = uv[7];
     },
 
     updateColor (sprite: Sprite) {
@@ -219,15 +219,10 @@ export const simple: IAssembler = {
         const vData = renderData.chunk.vb;
         let colorOffset = 5;
         const color = sprite.color;
-        const colorR = color.r / 255;
-        const colorG = color.g / 255;
-        const colorB = color.b / 255;
-        const colorA = color.a / 255;
+    
+        const u32 = new Uint32Array(vData.buffer, vData.byteOffset,vData.length);
         for (let i = 0; i < 4; i++, colorOffset += renderData.floatStride) {
-            vData[colorOffset] = colorR;
-            vData[colorOffset + 1] = colorG;
-            vData[colorOffset + 2] = colorB;
-            vData[colorOffset + 3] = colorA;
+            u32[colorOffset] = color.a << 24 | color.b << 16 | color.g << 8 | color.r;
         }
     },
 };

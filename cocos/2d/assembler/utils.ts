@@ -86,8 +86,9 @@ export function updateOpacity (renderData: RenderData, opacity: number) {
             if (format.size / format.count === 1) {
                 const alpha = ~~clamp(Math.round(opacity * 255), 0, 255);
                 // Uint color RGBA8
+                const u32 = new Uint32Array(vb.buffer, vb.byteOffset,vb.length);
                 for (let color = offset; color < vb.length; color += stride) {
-                    vb[color] = ((vb[color] & 0xffffff00) | alpha) >>> 0;
+                    u32[color] = (u32[color] & 0x00ffffff) | (alpha << 24);
                 }
             } else if (format.size / format.count === 4) {
                 // RGBA32 color, alpha at position 3
