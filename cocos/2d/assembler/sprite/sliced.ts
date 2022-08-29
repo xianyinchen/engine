@@ -228,16 +228,10 @@ export const sliced: IAssembler = {
 
         let colorOffset = 5;
         const color = sprite.color;
-        const colorR = color.r / 255;
-        const colorG = color.g / 255;
-        const colorB = color.b / 255;
-        const colorA = sprite.node._uiProps.opacity;
-        for (let i = 0; i < 16; i++) {
-            vData[colorOffset] = colorR;
-            vData[colorOffset + 1] = colorG;
-            vData[colorOffset + 2] = colorB;
-            vData[colorOffset + 3] = colorA;
-            colorOffset += stride;
+       
+        const u32 = new Uint32Array(vData.buffer, vData.byteOffset,vData.length);
+        for (let i = 0; i < 16; i++, colorOffset += stride) {
+            u32[colorOffset] = color.a << 24 | color.b << 16 | color.g << 8 | color.r;
         }
     },
 };
