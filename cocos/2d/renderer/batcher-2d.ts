@@ -318,7 +318,7 @@ export class Batcher2D implements IBatcher {
      * @param attributes use VertexFormat.vfmtPosUvColor by default
      */
     public switchBufferAccessor (attributes: Attribute[] = vfmtPosUvColor) {
-        const strideBytes = attributes === vfmtPosUvColor ? 36 /* 9x4 */ : getAttributeStride(attributes);
+        const strideBytes = attributes === vfmtPosUvColor ? 24 /* 9x4 */ : getAttributeStride(attributes);
         // If current accessor not compatible with the requested attributes
         if (!this._staticVBBuffer || (this._staticVBBuffer.vertexFormatBytes) !== strideBytes) {
             let accessor = this._bufferAccessors.get(strideBytes);
@@ -329,7 +329,7 @@ export class Batcher2D implements IBatcher {
 
             this._staticVBBuffer = accessor;
             this._currBID = -1;
-        }
+        }``
         return this._staticVBBuffer;
     }
 

@@ -44,7 +44,7 @@ export const vfmt = [
  */
 export const vfmtPosColor = [
     new Attribute(AttributeName.ATTR_POSITION, Format.RGB32F),
-    new Attribute(AttributeName.ATTR_COLOR, Format.RGBA32F),
+    new Attribute(AttributeName.ATTR_COLOR, Format.RGBA8, true),
 ];
 
 /**
@@ -60,7 +60,7 @@ export const vfmtPosColor = [
 export const vfmtPosUvColor = [
     new Attribute(AttributeName.ATTR_POSITION, Format.RGB32F),
     new Attribute(AttributeName.ATTR_TEX_COORD, Format.RG32F),
-    new Attribute(AttributeName.ATTR_COLOR, Format.RGBA32F),
+    new Attribute(AttributeName.ATTR_COLOR, Format.RGBA8, true),
 ];
 
 /**
@@ -78,8 +78,8 @@ export const vfmtPosUvColor = [
 export const vfmtPosUvTwoColor = [
     new Attribute(AttributeName.ATTR_POSITION, Format.RGB32F),
     new Attribute(AttributeName.ATTR_TEX_COORD, Format.RG32F),
-    new Attribute(AttributeName.ATTR_COLOR, Format.RGBA32F),
-    new Attribute(AttributeName.ATTR_COLOR2, Format.RGBA32F),
+    new Attribute(AttributeName.ATTR_COLOR, Format.RGBA8, true),
+    new Attribute(AttributeName.ATTR_COLOR2, Format.RGBA8, true),
 ];
 
 /**
@@ -89,14 +89,14 @@ export const vfmtPosUvTwoColor = [
  * @returns Total components count
  */
 export function getComponentPerVertex (attrs: Attribute[]) {
-    let count = 0;
+    let size = 0;
     for (let i = 0; i < attrs.length; i++) {
         const attr = attrs[i];
         const info = FormatInfos[attr.format];
-        count += info.count;
+        size += info.size;
     }
 
-    return count;
+    return size / Float32Array.BYTES_PER_ELEMENT;
 }
 
 /**
