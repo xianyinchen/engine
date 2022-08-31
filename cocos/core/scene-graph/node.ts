@@ -592,31 +592,18 @@ export class Node extends BaseNode implements CustomSerializable {
      * @param dirtyBit The dirty bits to setup to children, can be composed with multiple dirty bits
      */
     public invalidateChildren (dirtyBit: TransformBit) {
-        let i = 0;
         let j = 0;
         let l = 0;
-        let cur: this;
-        let children:this[];
-        let hasChangedFlags = 0;
-        const childDirtyBit = dirtyBit | TransformBit.POSITION;
+        const curDirtyBit = dirtyBit | TransformBit.POSITION;
 
-        dirtyNodes[0] = this;
-
-        while (i >= 0) {
-            cur = dirtyNodes[i--];
-            hasChangedFlags = cur.hasChangedFlags;
-            if (cur.isValid && (cur._dirtyFlags & hasChangedFlags & dirtyBit) !== dirtyBit) {
-                cur._dirtyFlags |= dirtyBit;
-
-                cur.hasChangedFlags = hasChangedFlags | dirtyBit;
-
-                children = cur._children;
-                l = children.length;
-                for (j = 0; j < l; j++) {
-                    dirtyNodes[++i] = children[j];
-                }
+        const hasChangedFlags = this._hasChangedFlags;
+        if (this.isValid && (parent.dirtyFlags & hasChangedFlags & curDirtyBit) != curDirtyBit) {
+            this._dirtyFlags |= curDirtyBit;
+            this.hasChangedFlags = hasChangedFlags | curDirtyBit;
+            l = this.children.length;
+            for (j = 0; j < l; j++) {
+                this.children[j].invalidateChildren(this._dirtyFlags | TransformBit.POSITION);
             }
-            dirtyBit = childDirtyBit;
         }
     }
 
@@ -624,62 +611,61 @@ export class Node extends BaseNode implements CustomSerializable {
      * @en Update the world transform information if outdated
      * @zh 更新节点的世界变换信息
      */
-    public updateWorldTransform () {
-        if (!this._dirtyFlags) { return; }
-        // we need to recursively iterate this
-        // eslint-disable-next-line @typescript-eslint/no-this-alias
-        let cur: this | null = this;
-        let i = 0;
-        while (cur && cur._dirtyFlags) {
-            // top level node
-            dirtyNodes[i++] = cur;
-            cur = cur._parent;
-        }
-        let child: this; let dirtyBits = 0;
+    public updateWorldTransform() {
+        this.updateWorldTransformRecursive(0);
+    }
 
-        while (i) {
-            child = dirtyNodes[--i];
-            dirtyBits |= child._dirtyFlags;
-            if (cur) {
-                if (dirtyBits & TransformBit.POSITION) {
-                    Vec3.transformMat4(child._pos, child._lpos, cur._mat);
-                    child._mat.m12 = child._pos.x;
-                    child._mat.m13 = child._pos.y;
-                    child._mat.m14 = child._pos.z;
+    private updateWorldTransformRecursive(dirtyBits: number) {
+        const currDirtyBits = this._dirtyFlags;
+        if (!currDirtyBits) {
+            return;
+        }
+
+        let parent = this._parent;
+        if (parent && parent._dirtyFlags) {
+            parent.updateWorldTransformRecursive(dirtyBits);
+        }
+
+        dirtyBits |= currDirtyBits;
+        if (parent) {
+            dirtyBits |= this._dirtyFlags;
+            if (dirtyBits & TransformBit.POSITION) {
+                Vec3.transformMat4(this._pos, this._lpos, parent._mat);
+                this._mat.m12 = this._pos.x;
+                this._mat.m13 = this._pos.y;
+                this._mat.m14 = this._pos.z;
+            }
+            if (dirtyBits & TransformBit.RS) {
+                Mat4.fromRTS(this._mat, this._lrot, this._lpos, this._lscale);
+                Mat4.multiply(this._mat, parent._mat, this._mat);
+                if (dirtyBits & TransformBit.ROTATION) {
+                    Quat.multiply(this._rot, parent._rot, this._lrot);
                 }
-                if (dirtyBits & TransformBit.RS) {
-                    Mat4.fromRTS(child._mat, child._lrot, child._lpos, child._lscale);
-                    Mat4.multiply(child._mat, cur._mat, child._mat);
-                    if (dirtyBits & TransformBit.ROTATION) {
-                        Quat.multiply(child._rot, cur._rot, child._lrot);
-                    }
-                    Mat3.fromQuat(m3_1, Quat.conjugate(qt_1, child._rot));
-                    Mat3.multiplyMat4(m3_1, m3_1, child._mat);
-                    child._scale.x = m3_1.m00;
-                    child._scale.y = m3_1.m04;
-                    child._scale.z = m3_1.m08;
+                Mat3.fromQuat(m3_1, Quat.conjugate(qt_1, this._rot));
+                Mat3.multiplyMat4(m3_1, m3_1, this._mat);
+                this._scale.x = m3_1.m00;
+                this._scale.y = m3_1.m04;
+                this._scale.z = m3_1.m08;
+            }
+        } else {
+            if (dirtyBits & TransformBit.POSITION) {
+                Vec3.copy(this._pos, this._lpos);
+                this._mat.m12 = this._pos.x;
+                this._mat.m13 = this._pos.y;
+                this._mat.m14 = this._pos.z;
+            }
+            if (dirtyBits & TransformBit.RS) {
+                if (dirtyBits & TransformBit.ROTATION) {
+                    Quat.copy(this._rot, this._lrot);
                 }
-            } else {
-                if (dirtyBits & TransformBit.POSITION) {
-                    Vec3.copy(child._pos, child._lpos);
-                    child._mat.m12 = child._pos.x;
-                    child._mat.m13 = child._pos.y;
-                    child._mat.m14 = child._pos.z;
-                }
-                if (dirtyBits & TransformBit.RS) {
-                    if (dirtyBits & TransformBit.ROTATION) {
-                        Quat.copy(child._rot, child._lrot);
-                    }
-                    if (dirtyBits & TransformBit.SCALE) {
-                        Vec3.copy(child._scale, child._lscale);
-                        Mat4.fromRTS(child._mat, child._rot, child._pos, child._scale);
-                    }
+                if (dirtyBits & TransformBit.SCALE) {
+                    Vec3.copy(this._scale, this._lscale);
+                    Mat4.fromRTS(this._mat, this._rot, this._pos, this._scale);
                 }
             }
-
-            child._dirtyFlags = TransformBit.NONE;
-            cur = child;
         }
+
+        this._dirtyFlags = TransformBit.NONE;
     }
 
     // ===============================
@@ -862,20 +848,19 @@ export class Node extends BaseNode implements CustomSerializable {
      * @param p A position in world coordinate system
      */
     public inverseTransformPoint (out: Vec3, p: Vec3) {
-        Vec3.copy(out, p);
-        // we need to recursively iterate this
-        // eslint-disable-next-line @typescript-eslint/no-this-alias
-        let cur = this;
-        let i = 0;
-        while (cur._parent) {
-            dirtyNodes[i++] = cur;
-            cur = cur._parent;
+        this.inverseTransformPointRecursive(out);
+        return out
+    }
+        
+    private inverseTransformPointRecursive(out: Vec3) {
+
+        let parent = this._parent;
+        if (!parent) {
+            return;
         }
-        while (i >= 0) {
-            Vec3.transformInverseRTS(out, out, cur._lrot, cur._lpos, cur._lscale);
-            cur = dirtyNodes[--i];
-        }
-        return out;
+
+        parent.inverseTransformPointRecursive(out);
+        Vec3.transformInverseRTS(out, out, this._lrot, this._lpos, this._lscale);
     }
 
     /**
