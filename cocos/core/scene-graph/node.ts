@@ -848,6 +848,7 @@ export class Node extends BaseNode implements CustomSerializable {
      * @param p A position in world coordinate system
      */
     public inverseTransformPoint (out: Vec3, p: Vec3) {
+        out.set(p.x, p.y, p.z);
         this.inverseTransformPointRecursive(out);
         return out
     }
