@@ -825,5 +825,3 @@ export class MeshRenderData extends BaseRenderData {
         }
     }
 }
-
-const _meshDataPool: RecyclePool<MeshRenderData> = new RecyclePool(() => new MeshRenderData(), 32);
