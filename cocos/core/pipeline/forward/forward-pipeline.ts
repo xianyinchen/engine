@@ -28,7 +28,6 @@ import { EDITOR } from 'internal:constants';
 import { RenderPipeline, IRenderPipelineInfo } from '../render-pipeline';
 import { ForwardFlow } from './forward-flow';
 import { RenderTextureConfig } from '../pipeline-serialization';
-import { ShadowFlow } from '../shadow/shadow-flow';
 import { UBOGlobal, UBOShadow, UBOCamera, UNIFORM_SHADOWMAP_BINDING, UNIFORM_SPOT_SHADOW_MAP_TEXTURE_BINDING } from '../define';
 import { Swapchain, RenderPass } from '../../gfx';
 import { builtinResMgr } from '../../builtin';
@@ -60,10 +59,6 @@ export class ForwardPipeline extends RenderPipeline {
         super.initialize(info);
 
         if (this._flows.length === 0) {
-            const shadowFlow = new ShadowFlow();
-            shadowFlow.initialize(ShadowFlow.initInfo);
-            this._flows.push(shadowFlow);
-
             const forwardFlow = new ForwardFlow();
             forwardFlow.initialize(ForwardFlow.initInfo);
             this._flows.push(forwardFlow);
