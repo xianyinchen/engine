@@ -80,28 +80,10 @@ export class WebSceneTask extends SceneTask {
         if (!this.camera) { return; }
         const scene = this.renderScene;
         const camera = this.camera;
-        const mainLight = scene!.mainLight;
         const sceneData = this._sceneData;
-        const shadows = sceneData.shadows;
         const skybox = sceneData.skybox;
-        const csmLayers = sceneData.csmLayers;
         const renderObjects = sceneData.renderObjects;
         renderObjects.length = 0;
-
-        const castShadowObjects = csmLayers.castShadowObjects;
-        castShadowObjects.length = 0;
-        const csmLayerObjects = csmLayers.layerObjects;
-        csmLayerObjects.clear();
-
-        if (shadows.enabled) {
-            this._ubo.updateShadowUBORange(UBOShadow.SHADOW_COLOR_OFFSET, shadows.shadowColor);
-            if (shadows.type === ShadowType.ShadowMap) {
-                // update CSM layers
-                if (mainLight && mainLight.node) {
-                    csmLayers.update(sceneData, camera);
-                }
-            }
-        }
 
         if (skybox.enabled && skybox.model && (camera.clearFlag & SKYBOX_FLAG)) {
             renderObjects.push(this._getRenderObject(skybox.model, camera));
@@ -114,12 +96,7 @@ export class WebSceneTask extends SceneTask {
             const model = models[i];
 
             // filter model by view visibility
-            if (model.enabled) {
-                if (model.castShadow) {
-                    castShadowObjects.push(this._getRenderObject(model, camera));
-                    csmLayerObjects.push(this._getRenderObject(model, camera));
-                }
-
+            if (model.enabled) {                
                 if (model.node && ((visibility & model.node.layer) === model.node.layer)
                  || (visibility & model.visFlags)) {
                     // frustum culling
