@@ -30,8 +30,6 @@ import { ForwardFlowPriority } from '../enum';
 import { ForwardStage } from './forward-stage';
 import { RenderPipeline } from '../render-pipeline';
 import { Camera } from '../../renderer/scene';
-import { PostProcessStage } from '../deferred/postprocess-stage';
-import { BloomStage } from '../deferred/bloom-stage';
 
 /**
  * @en The forward flow in forward render pipeline

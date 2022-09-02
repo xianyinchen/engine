@@ -37,7 +37,6 @@ import { BatchingSchemes } from '../../renderer/core/pass';
 import { ForwardFlow } from './forward-flow';
 import { ForwardPipeline } from './forward-pipeline';
 import { RenderQueueDesc, RenderQueueSortMode } from '../pipeline-serialization';
-import { PlanarShadowQueue } from '../planar-shadow-queue';
 import { UIPhase } from '../ui-phase';
 import { Camera } from '../../renderer/scene';
 import { renderProfiler } from '../pipeline-funcs';
@@ -79,11 +78,8 @@ export class ForwardStage extends RenderStage {
     private _instancedQueue: RenderInstancedQueue;
     private _phaseID = getPhaseID('default');
     private _clearFlag = 0xffffffff;
-    private declare _additiveLightQueue: RenderAdditiveLightQueue;
-    private declare _planarQueue: PlanarShadowQueue;
+    private declare _additiveLightQueue: RenderAdditiveLightQueue;    
     private declare _uiPhase: UIPhase;
-
-    additiveInstanceQueues: RenderInstancedQueue[] = [];
 
     constructor () {
         super();
@@ -107,7 +103,6 @@ export class ForwardStage extends RenderStage {
         }
 
         this._additiveLightQueue = new RenderAdditiveLightQueue(this._pipeline as ForwardPipeline);
-        this._planarQueue = new PlanarShadowQueue(this._pipeline);
         this._uiPhase.activate(pipeline);
     }
 
@@ -156,14 +151,9 @@ export class ForwardStage extends RenderStage {
         const cmdBuff = pipeline.commandBuffers[0];
         pipeline.pipelineUBO.updateShadowUBO(camera);
 
-        for (let i = 0; i < this.additiveInstanceQueues.length; i++) {
-            this.additiveInstanceQueues[i].uploadBuffers(cmdBuff);
-        }
-
         this._instancedQueue.uploadBuffers(cmdBuff);
         this._batchedQueue.uploadBuffers(cmdBuff);
         this._additiveLightQueue.gatherLightPasses(camera, cmdBuff);
-        this._planarQueue.gatherShadowPasses(camera, cmdBuff);
 
         if (camera.clearFlag & ClearFlagBit.COLOR) {
             colors[0].x = camera.clearColor.x;
@@ -179,18 +169,12 @@ export class ForwardStage extends RenderStage {
             colors, camera.clearDepth, camera.clearStencil);
         cmdBuff.bindDescriptorSet(SetIndex.GLOBAL, pipeline.descriptorSet);
         this._renderQueues[0].recordCommandBuffer(device, renderPass, cmdBuff);
-        
-        for (let i = 0; i < this.additiveInstanceQueues.length; i++) {
-            this.additiveInstanceQueues[i].recordCommandBuffer(device, renderPass, cmdBuff);
-        }
-
         this._instancedQueue.recordCommandBuffer(device, renderPass, cmdBuff);
         this._batchedQueue.recordCommandBuffer(device, renderPass, cmdBuff);
 
         this._additiveLightQueue.recordCommandBuffer(device, renderPass, cmdBuff);
 
         cmdBuff.bindDescriptorSet(SetIndex.GLOBAL, pipeline.descriptorSet);
-        this._planarQueue.recordCommandBuffer(device, renderPass, cmdBuff);
         this._renderQueues[1].recordCommandBuffer(device, renderPass, cmdBuff);
         camera.geometryRenderer?.render(renderPass, cmdBuff, pipeline.pipelineSceneData);
         this._uiPhase.render(camera, renderPass);

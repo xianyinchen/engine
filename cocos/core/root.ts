@@ -25,7 +25,7 @@
 
 import { DEV, HTML5, TEST } from 'internal:constants';
 import { Pool } from './memop';
-import { RenderPipeline, createDefaultPipeline, DeferredPipeline } from './pipeline';
+import { RenderPipeline, createDefaultPipeline } from './pipeline';
 import { DebugView } from './pipeline/debug-view';
 import { Camera, Light, Model } from './renderer/scene';
 import type { DataPoolManager } from '../3d/skeletal-animation/data-pool-manager';
@@ -361,10 +361,7 @@ export class Root {
         //-----------------------------------------------
         // prepare classic pipeline
         //-----------------------------------------------
-        if (rppl instanceof DeferredPipeline) {
-            this._useDeferredPipeline = true;
-        }
-
+        
         let isCreateDefaultPipeline = false;
         if (!rppl) {
             rppl = createDefaultPipeline();

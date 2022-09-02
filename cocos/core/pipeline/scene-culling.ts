@@ -29,10 +29,7 @@ import { Camera, SKYBOX_FLAG } from '../renderer/scene/camera';
 import { Vec3 } from '../math';
 import { RenderPipeline } from './render-pipeline';
 import { Pool } from '../memop';
-import { IRenderObject, UBOShadow } from './define';
-import { ShadowType, Shadows, CSMOptimizationMode } from '../renderer/scene/shadows';
-import { PipelineSceneData } from './pipeline-scene-data';
-import { ShadowLayerVolume } from './shadow/csm-layers';
+import { IRenderObject } from './define';
 
 const _tempVec3 = new Vec3();
 const _sphere = Sphere.create(0, 0, 0, 1);
@@ -81,73 +78,12 @@ export function validPunctualLightsCulling (pipeline: RenderPipeline, camera: Ca
         }
     }
 }
-export function shadowCulling (camera: Camera, sceneData: PipelineSceneData, layer: ShadowLayerVolume) {
-    const scene = camera.scene!;
-    const mainLight = scene.mainLight!;
-    const csmLayers = sceneData.csmLayers;
-    const csmLayerObjects = csmLayers.layerObjects;
-    const dirLightFrustum = layer.validFrustum;
-    const dirShadowObjects = layer.shadowObjects;
-    dirShadowObjects.length = 0;
-    const visibility = camera.visibility;
-
-    for (let i = csmLayerObjects.length - 1; i >= 0; i--) {
-        const csmLayerObject = csmLayerObjects.array[i];
-        if (csmLayerObject) {
-            const model = csmLayerObject.model;
-            // filter model by view visibility
-            if (model.enabled) {
-                if (model.node && ((visibility & model.node.layer) === model.node.layer)) {
-                    // shadow render Object
-                    if (dirShadowObjects != null && model.castShadow && model.worldBounds) {
-                        // frustum culling
-                        // eslint-disable-next-line no-lonely-if
-                        const accurate = intersect.aabbFrustum(model.worldBounds, dirLightFrustum);
-                        if (accurate) {
-                            dirShadowObjects.push(csmLayerObject);
-                            if (layer.level < mainLight.csmLevel) {
-                                if (mainLight.csmOptimizationMode === CSMOptimizationMode.RemoveDuplicates
-                                    && intersect.aabbFrustumCompletelyInside(model.worldBounds, dirLightFrustum)) {
-                                    csmLayerObjects.fastRemove(i);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 export function sceneCulling (pipeline: RenderPipeline, camera: Camera) {
     const scene = camera.scene!;
-    const mainLight = scene.mainLight;
     const sceneData = pipeline.pipelineSceneData;
-    const shadows = sceneData.shadows;
-    const skybox = sceneData.skybox;
-    const csmLayers = sceneData.csmLayers;
 
     const renderObjects = sceneData.renderObjects;
     roPool.freeArray(renderObjects); renderObjects.length = 0;
-
-    const castShadowObjects = csmLayers.castShadowObjects;
-    castShadowObjects.length = 0;
-    const csmLayerObjects = csmLayers.layerObjects;
-    csmLayerObjects.clear();
-
-    if (shadows.enabled) {
-        pipeline.pipelineUBO.updateShadowUBORange(UBOShadow.SHADOW_COLOR_OFFSET, shadows.shadowColor);
-        if (shadows.type === ShadowType.ShadowMap) {
-            // update CSM layers
-            if (mainLight && mainLight.node) {
-                csmLayers.update(sceneData, camera);
-            }
-        }
-    }
-
-    if (skybox.enabled && skybox.model && (camera.clearFlag & SKYBOX_FLAG)) {
-        renderObjects.push(getRenderObject(skybox.model, camera));
-    }
 
     const models = scene.models;
     const visibility = camera.visibility;
@@ -156,12 +92,7 @@ export function sceneCulling (pipeline: RenderPipeline, camera: Camera) {
         const model = models[i];
 
         // filter model by view visibility
-        if (model.enabled) {
-            if (model.castShadow) {
-                castShadowObjects.push(getRenderObject(model, camera));
-                csmLayerObjects.push(getRenderObject(model, camera));
-            }
-
+        if (model.enabled) {    
             if (model.node && ((visibility & model.node.layer) === model.node.layer)
                  || (visibility & model.visFlags)) {
                 // frustum culling

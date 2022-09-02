@@ -250,33 +250,6 @@ export class SubModel {
 
     /**
      * @en
-     * init planar shadow's shader
-     * @zh
-     * 平面阴影着色器初始化
-     */
-    public initPlanarShadowShader () {
-        const pipeline = (legacyCC.director.root as Root).pipeline;
-        const shadowInfo = pipeline.pipelineSceneData.shadows;
-        this._planarShader = shadowInfo.getPlanarShader(this._patches);
-    }
-
-    /**
-     * @en
-     * init planar shadow's instance shader
-     * @zh
-     * 平面阴影实例着色器初始化
-     */
-    /**
-     * @internal
-     */
-    public initPlanarShadowInstanceShader () {
-        const pipeline = (legacyCC.director.root as Root).pipeline;
-        const shadowInfo = pipeline.pipelineSceneData.shadows;
-        this._planarInstanceShader = shadowInfo.getPlanarInstanceShader(this._patches);
-    }
-
-    /**
-     * @en
      * destroy sub model
      * @zh
      * 销毁子模型

@@ -121,12 +121,12 @@ export const PCFType = Enum({
      */
     SOFT_2X: 2,
 
-    /**
-     * @zh x16 次采样
-     * @en x16 times
-     * @readonly
-     */
-    SOFT_4X: 3,
+    // /**
+    //  * @zh x16 次采样
+    //  * @en x16 times
+    //  * @readonly
+    //  */
+    // SOFT_4X: 3,
 });
 
 /**
@@ -343,16 +343,7 @@ export class Shadows {
      * @returns The shader for the planar shadow
      */
     public getPlanarShader (patches: IMacroPatch[] | null): Shader | null {
-        if (!this._material) {
-            this._material = new Material();
-            this._material.initialize({ effectName: 'pipeline/planar-shadow' });
-        }
-
-        const passes = this._material.passes;
-        if (DEBUG) {
-            assert(passes.length > 0, 'passes should not be empty!');
-        }
-        return passes.length > 0 ? passes[0].getShaderVariant(patches) : null;
+        return null!;
     }
 
     /**
@@ -362,74 +353,21 @@ export class Shadows {
      * @returns The shader for the planar shadow
      */
     public getPlanarInstanceShader (patches: IMacroPatch[] | null): Shader | null {
-        if (!this._instancingMaterial) {
-            this._instancingMaterial = new Material();
-            this._instancingMaterial.initialize({ effectName: 'pipeline/planar-shadow', defines: { USE_INSTANCING: true } });
-        }
-
-        const passes = this._instancingMaterial.passes;
-        if (DEBUG) {
-            assert(passes.length > 0, 'passes should not be empty!');
-        }
-        return passes.length > 0 ? passes[0].getShaderVariant(patches) : null;
+        return null!
     }
 
-    public initialize (shadowsInfo: ShadowsInfo) {
-        this._enabled = shadowsInfo.enabled;
-        this._type = this.enabled ? shadowsInfo.type : SHADOW_TYPE_NONE;
-
-        this.normal = shadowsInfo.planeDirection;
-        this.distance = shadowsInfo.planeHeight;
-        this.shadowColor = shadowsInfo.shadowColor;
-        this.maxReceived = shadowsInfo.maxReceived;
-        if (shadowsInfo.shadowMapSize !== this._size.x) {
-            this.size.set(shadowsInfo.shadowMapSize, shadowsInfo.shadowMapSize);
-            this._shadowMapDirty = true;
-        }
+    public initialize (shadowsInfo: ShadowsInfo) {      
     }
 
     public activate () {
-        if (this._enabled) {
-            if (this.type === ShadowType.Planar) {
-                this._updatePlanarInfo();
-            } else {
-                const root = legacyCC.director.root;
-                const pipeline = root.pipeline;
-                pipeline.macros.CC_SHADOW_TYPE = 2;
-                root.onGlobalPipelineStateChanged();
-            }
-        } else {
-            const root = legacyCC.director.root;
-            const pipeline = root.pipeline;
-            pipeline.macros.CC_SHADOW_TYPE = 0;
-            root.onGlobalPipelineStateChanged();
-        }
+
     }
 
     protected _updatePlanarInfo () {
-        if (!this._material) {
-            this._material = new Material();
-            this._material.initialize({ effectName: 'pipeline/planar-shadow' });
-        }
-        if (!this._instancingMaterial) {
-            this._instancingMaterial = new Material();
-            this._instancingMaterial.initialize({ effectName: 'pipeline/planar-shadow', defines: { USE_INSTANCING: true } });
-        }
-        const root = legacyCC.director.root;
-        const pipeline = root.pipeline;
-        pipeline.macros.CC_SHADOW_TYPE = 1;
-        root.onGlobalPipelineStateChanged();
+
     }
 
     public destroy () {
-        if (this._material) {
-            this._material.destroy();
-        }
-
-        if (this._instancingMaterial) {
-            this._instancingMaterial.destroy();
-        }
-        this.fixedSphere.destroy();
     }
 }
 
