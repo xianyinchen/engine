@@ -41,7 +41,6 @@ import {
 } from '../../core/gfx';
 import { Mat4, Quat, Vec3 } from '../../core/math';
 import { Morph } from './morph';
-import { MorphRendering, createMorphRendering } from './morph-rendering';
 
 function getIndexStrideCtor (stride: number) {
     switch (stride) {
@@ -318,11 +317,6 @@ export class Mesh extends Asset {
         return this._renderingSubMeshes!;
     }
 
-    /**
-     * @en morph rendering data
-     * @zh 变形渲染数据
-     */
-    public morphRendering: MorphRendering | null = null;
 
     @serializable
     private _struct: Mesh.IStruct = {
@@ -494,10 +488,6 @@ export class Mesh extends Asset {
             }
 
             this._renderingSubMeshes = subMeshes;
-
-            if (this._struct.morph) {
-                this.morphRendering = createMorphRendering(this, gfxDevice);
-            }
 
             this._isMeshDataUploaded = true;
             if (!this._allowDataAccess) {

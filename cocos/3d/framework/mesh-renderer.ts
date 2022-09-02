@@ -37,7 +37,6 @@ import { TransformBit } from '../../core/scene-graph/node-enum';
 import { Enum } from '../../core/value-types';
 import { builtinResMgr } from '../../core/builtin';
 import { ModelRenderer } from '../../core/components/model-renderer';
-import { MorphRenderingInstance } from '../assets/morph-rendering';
 import { legacyCC } from '../../core/global-exports';
 import { assertIsTrue } from '../../core/data/utils/asserts';
 import { CCFloat } from '../../core/data/utils/attribute';
@@ -285,8 +284,6 @@ export class MeshRenderer extends ModelRenderer {
         const old = this._mesh;
         const mesh = this._mesh = val;
         mesh?.initialize();
-        this._initSubMeshShapesWeights();
-        this._watchMorphInMesh();
         this._onMeshChanged(old);
         this._updateModels();
         if (this.enabledInHierarchy) {
@@ -327,8 +324,6 @@ export class MeshRenderer extends ModelRenderer {
 
     protected _model: scene.Model | null = null;
 
-    private _morphInstance: MorphRenderingInstance | null = null;
-
     @serializable
     private _enableMorph = true;
 
@@ -339,10 +334,6 @@ export class MeshRenderer extends ModelRenderer {
 
     public onLoad () {
         if (this._mesh) { this._mesh.initialize(); }
-        if (!this._validateShapeWeights()) {
-            this._initSubMeshShapesWeights();
-        }
-        this._watchMorphInMesh();
         this._updateModels();
         this._updateShadowBias();
         this._updateShadowNormalBias();
@@ -381,9 +372,6 @@ export class MeshRenderer extends ModelRenderer {
             this._model = null;
             this._models.length = 0;
         }
-        if (this._morphInstance) {
-            this._morphInstance.destroy();
-        }
     }
 
     public onGeometryChanged () {
@@ -420,17 +408,7 @@ export class MeshRenderer extends ModelRenderer {
      * @param weights The weights.
      * @param subMeshIndex Index to the sub mesh.
      */
-    public setWeights (weights: number[], subMeshIndex: number) {
-        const { _subMeshShapesWeights: subMeshShapesWeights } = this;
-        if (subMeshIndex >= subMeshShapesWeights.length) {
-            return;
-        }
-        const shapeWeights = subMeshShapesWeights[subMeshIndex];
-        if (shapeWeights.length !== weights.length) {
-            return;
-        }
-        subMeshShapesWeights[subMeshIndex] = weights.slice(0);
-        this._uploadSubMeshShapesWeights(subMeshIndex);
+    public setWeights (weights: number[], subMeshIndex: number) {        
     }
 
     /**
@@ -446,16 +424,7 @@ export class MeshRenderer extends ModelRenderer {
      * @param shapeIndex Index to the shape of the sub mesh.
      */
     public setWeight (weight: number, subMeshIndex: number, shapeIndex: number) {
-        const { _subMeshShapesWeights: subMeshShapesWeights } = this;
-        if (subMeshIndex >= subMeshShapesWeights.length) {
-            return;
-        }
-        const shapeWeights = subMeshShapesWeights[subMeshIndex];
-        if (shapeIndex >= shapeWeights.length) {
-            return;
-        }
-        shapeWeights[shapeIndex] = weight;
-        this._uploadSubMeshShapesWeights(subMeshIndex);
+
     }
 
     public setInstancedAttribute (name: string, value: ArrayLike<number>) {
@@ -517,8 +486,7 @@ export class MeshRenderer extends ModelRenderer {
         }
     }
 
-    protected _createModel () {
-        const preferMorphOverPlain = !!this._morphInstance;
+    protected _createModel () {        
         // Note we only change to use `MorphModel` if
         // we are required to render morph and the `this._modelType` is exactly the basic `Model`.
         // We do this since the `this._modelType` might be changed in classes derived from `Model`.
@@ -526,15 +494,12 @@ export class MeshRenderer extends ModelRenderer {
         // Please notice that we do not enforce that
         // derived classes should use a morph-able model type(i.e. model type derived from `MorphModel`).
         // So we should take care of the edge case.
-        const modelType = (preferMorphOverPlain && this._modelType === scene.Model) ? MorphModel : this._modelType;
+        const modelType = this._modelType;
         const model = this._model = (legacyCC.director.root as Root).createModel(modelType);
         model.visFlags = this.visibility;
         model.node = model.transform = this.node;
         this._models.length = 0;
         this._models.push(this._model);
-        if (this._morphInstance && model instanceof MorphModel) {
-            model.setMorphRendering(this._morphInstance);
-        }
     }
 
     protected _attachToScene () {
@@ -654,86 +619,6 @@ export class MeshRenderer extends ModelRenderer {
             }
         }
         return false;
-    }
-
-    private _watchMorphInMesh () {
-        if (this._morphInstance) {
-            this._morphInstance.destroy();
-            this._morphInstance = null;
-        }
-
-        if (!this._enableMorph) {
-            return;
-        }
-
-        if (!this._mesh
-            || !this._mesh.struct.morph
-            || !this._mesh.morphRendering) {
-            return;
-        }
-
-        this._morphInstance = this._mesh.morphRendering.createInstance();
-        const nSubMeshes = this._mesh.struct.primitives.length;
-        for (let iSubMesh = 0; iSubMesh < nSubMeshes; ++iSubMesh) {
-            this._uploadSubMeshShapesWeights(iSubMesh);
-        }
-
-        if (this._model && this._model instanceof MorphModel) {
-            this._model.setMorphRendering(this._morphInstance);
-        }
-    }
-
-    private _initSubMeshShapesWeights () {
-        const { _mesh: mesh } = this;
-
-        this._subMeshShapesWeights.length = 0;
-
-        if (!mesh) {
-            return;
-        }
-
-        const morph = mesh.struct.morph;
-        if (!morph) {
-            return;
-        }
-
-        const commonWeights = morph.weights;
-        this._subMeshShapesWeights = morph.subMeshMorphs.map((subMeshMorph) => {
-            if (!subMeshMorph) {
-                return [];
-            } else if (subMeshMorph.weights) {
-                return subMeshMorph.weights.slice(0);
-            } else if (commonWeights) {
-                assertIsTrue(commonWeights.length === subMeshMorph.targets.length);
-                return commonWeights.slice(0);
-            } else {
-                return new Array<number>(subMeshMorph.targets.length).fill(0.0);
-            }
-        });
-    }
-
-    private _validateShapeWeights () {
-        const {
-            _mesh: mesh,
-            _subMeshShapesWeights: subMeshShapesWeights,
-        } = this;
-
-        if (!mesh || !mesh.struct.morph) {
-            return subMeshShapesWeights.length === 0;
-        }
-
-        const { morph } = mesh.struct;
-        if (morph.subMeshMorphs.length !== subMeshShapesWeights.length) {
-            return false;
-        }
-
-        return subMeshShapesWeights.every(
-            ({ length: shapeCount }, subMeshIndex) => (morph.subMeshMorphs[subMeshIndex]?.targets.length ?? 0) === shapeCount,
-        );
-    }
-
-    private _uploadSubMeshShapesWeights (subMeshIndex: number) {
-        this._morphInstance?.setWeights(subMeshIndex, this._subMeshShapesWeights[subMeshIndex]);
     }
 }
 
