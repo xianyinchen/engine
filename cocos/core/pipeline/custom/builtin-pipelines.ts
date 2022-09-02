@@ -47,35 +47,6 @@ export function getRenderArea (camera: Camera, width: number, height: number, li
     return out;
 }
 
-export function buildShadowPass (passName: Readonly<string>,
-    ppl: Pipeline,
-    camera: Camera, light: Light, level: number,
-    width: Readonly<number>, height: Readonly<number>) {
-    const device = ppl.device;
-    const shadowMapName = passName;
-    if (!ppl.containsResource(shadowMapName)) {
-        const format = supportsR32FloatTexture(device) ? Format.R32F : Format.RGBA8;
-        ppl.addRenderTarget(shadowMapName, format, width, height, ResourceResidency.MANAGED);
-        ppl.addDepthStencil(`${shadowMapName}Depth`, Format.DEPTH_STENCIL, width, height, ResourceResidency.MANAGED);
-    }
-    const pass = ppl.addRasterPass(width, height, 'default', passName);
-    pass.addRasterView(shadowMapName, new RasterView('_',
-        AccessType.WRITE, AttachmentType.RENDER_TARGET,
-        LoadOp.CLEAR, StoreOp.STORE,
-        ClearFlagBit.COLOR,
-        new Color(1, 1, 1, camera.clearColor.w)));
-    pass.addRasterView(`${shadowMapName}Depth`, new RasterView('_',
-        AccessType.WRITE, AttachmentType.DEPTH_STENCIL,
-        LoadOp.CLEAR, StoreOp.DISCARD,
-        ClearFlagBit.DEPTH_STENCIL,
-        new Color(camera.clearDepth, camera.clearStencil, 0, 0)));
-    const rect = getRenderArea(camera, width, height, light, level);
-    pass.setViewport(new Viewport(rect.x, rect.y, rect.width, rect.height));
-    const queue = pass.addQueue(QueueHint.RENDER_OPAQUE);
-    queue.addSceneOfCamera(camera, new LightInfo(light, level),
-        SceneFlags.SHADOW_CASTER);
-}
-
 class CameraInfo {
     shadowEnabled = false;
     mainLightShadowNames = new Array<string>();
@@ -103,33 +74,6 @@ export function buildShadowPasses (cameraName: string, camera: Camera, ppl: Pipe
             }
         }
         m++;
-    }
-
-    const { mainLight } = camera.scene!;
-    // build shadow map
-    const mapWidth = shadows.size.x;
-    const mapHeight = shadows.size.y;
-    if (mainLight && mainLight.shadowEnabled) {
-        cameraInfo.mainLightShadowNames[0] = `MainLightShadow${cameraName}`;
-        if (mainLight.shadowFixedArea) {
-            buildShadowPass(cameraInfo.mainLightShadowNames[0], ppl,
-                camera, mainLight, 0, mapWidth, mapHeight);
-        } else {
-            const csmLevel = pipeline.pipelineSceneData.csmSupported ? mainLight.csmLevel : 1;
-            for (let i = 0; i < csmLevel; i++) {
-                cameraInfo.mainLightShadowNames[i] = `MainLightShadow${cameraName}`;
-                buildShadowPass(cameraInfo.mainLightShadowNames[i], ppl,
-                    camera, mainLight, i, mapWidth, mapHeight);
-            }
-        }
-    }
-
-    for (let l = 0; l < _validLights.length; l++) {
-        const light = _validLights[l];
-        const passName = `SpotLightShadow${l.toString()}${cameraName}`;
-        cameraInfo.spotLightShadowNames[l] = passName;
-        buildShadowPass(passName, ppl,
-            camera, light, 0, mapWidth, mapHeight);
     }
     return cameraInfo;
 }

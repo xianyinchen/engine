@@ -894,7 +894,6 @@ class DevicePreSceneTask extends WebSceneTask {
         const ubo = this._currentQueue.devicePass.context.ubo;
         ubo.updateGlobalUBO(camera.window);
         ubo.updateCameraUBO(camera);
-        ubo.updateShadowUBO(camera);
     }
 
     public submit () {
@@ -906,13 +905,8 @@ class DevicePreSceneTask extends WebSceneTask {
             this._currentQueue.blitDesc!.update();
             return;
         }
-        if (this._isShadowMap()) {
-            ubo.updateShadowUBOLight(context.pipeline.descriptorSet,
-                this.graphScene.scene!.light.light!, this.graphScene.scene!.light.level);
-            return;
-        }
-        this._updateUbo(this.camera!);
 
+        this._updateUbo(this.camera!);
         this._uploadInstanceBuffers();
         this._uploadBatchedBuffers();
     }

@@ -251,7 +251,6 @@ export class MeshRenderer extends ModelRenderer {
 
     set shadowCastingMode (val) {
         this._shadowCastingMode = val;
-        this._updateCastShadow();
     }
 
     /**
@@ -268,7 +267,6 @@ export class MeshRenderer extends ModelRenderer {
 
     set receiveShadow (val) {
         this._shadowReceivingMode = val;
-        this._updateReceiveShadow();
     }
 
     /**
@@ -294,8 +292,6 @@ export class MeshRenderer extends ModelRenderer {
         if (this.enabledInHierarchy) {
             this._attachToScene();
         }
-        this._updateCastShadow();
-        this._updateReceiveShadow();
     }
 
     /**
@@ -348,8 +344,6 @@ export class MeshRenderer extends ModelRenderer {
         }
         this._watchMorphInMesh();
         this._updateModels();
-        this._updateCastShadow();
-        this._updateReceiveShadow();
         this._updateShadowBias();
         this._updateShadowNormalBias();
     }
@@ -360,8 +354,6 @@ export class MeshRenderer extends ModelRenderer {
         if (this.enabledInHierarchy) {
             this._attachToScene();
         }
-        this._updateCastShadow();
-        this._updateReceiveShadow();
         this._updateShadowBias();
         this._updateShadowNormalBias();
     }
@@ -371,8 +363,6 @@ export class MeshRenderer extends ModelRenderer {
         if (!this._model) {
             this._updateModels();
         }
-        this._updateCastShadow();
-        this._updateReceiveShadow();
         this._updateShadowBias();
         this._updateShadowNormalBias();
         this._onUpdateLocalShadowBias();
@@ -652,28 +642,6 @@ export class MeshRenderer extends ModelRenderer {
     protected _updateShadowNormalBias () {
         if (!this._model) { return; }
         this._model.shadowNormalBias = this._shadowNormalBias;
-    }
-
-    protected _updateCastShadow () {
-        if (!this._model) { return; }
-        if (this._shadowCastingMode === ModelShadowCastingMode.OFF) {
-            this._model.castShadow = false;
-        } else {
-            assertIsTrue(
-                this._shadowCastingMode === ModelShadowCastingMode.ON,
-                `ShadowCastingMode ${this._shadowCastingMode} is not supported.`,
-            );
-            this._model.castShadow = true;
-        }
-    }
-
-    protected _updateReceiveShadow () {
-        if (!this._model) { return; }
-        if (this._shadowReceivingMode === ModelShadowReceivingMode.OFF) {
-            this._model.receiveShadow = false;
-        } else {
-            this._model.receiveShadow = true;
-        }
     }
 
     protected _isBatchingEnabled () {
