@@ -83,14 +83,9 @@ export function validPunctualLightsCulling (pipeline: RenderPipeline, camera: Ca
 export function sceneCulling (pipeline: RenderPipeline, camera: Camera) {
     const scene = camera.scene!;
     const sceneData = pipeline.pipelineSceneData;
-    const skybox = sceneData.skybox;
 
     const renderObjects = sceneData.renderObjects;
     roPool.freeArray(renderObjects); renderObjects.length = 0;
-
-    if (skybox.enabled && skybox.model && (camera.clearFlag & SKYBOX_FLAG)) {
-        renderObjects.push(getRenderObject(skybox.model, camera));
-    }
 
     const models = scene.models;
     const visibility = camera.visibility;

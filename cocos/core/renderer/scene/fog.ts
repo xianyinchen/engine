@@ -233,17 +233,7 @@ export class Fog {
     protected _activated = false;
 
     public initialize (fogInfo : FogInfo) {
-        this._activated = false;
-        this.fogColor = fogInfo.fogColor;
-        this._enabled = fogInfo.enabled;
-        this._type = this.enabled ? fogInfo.type : FOG_TYPE_NONE;
-        this._accurate = fogInfo.accurate;
-        this.fogDensity = fogInfo.fogDensity;
-        this.fogStart = fogInfo.fogStart;
-        this.fogEnd = fogInfo.fogEnd;
-        this.fogAtten = fogInfo.fogAtten;
-        this.fogTop = fogInfo.fogTop;
-        this.fogRange = fogInfo.fogRange;
+        this._activated = false;  
     }
 
     public activate () {
