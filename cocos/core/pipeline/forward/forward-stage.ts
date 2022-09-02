@@ -32,7 +32,6 @@ import { RenderBatchedQueue } from '../render-batched-queue';
 import { RenderInstancedQueue } from '../render-instanced-queue';
 import { IRenderStageInfo, RenderStage } from '../render-stage';
 import { ForwardStagePriority } from '../enum';
-import { RenderAdditiveLightQueue } from '../render-additive-light-queue';
 import { BatchingSchemes } from '../../renderer/core/pass';
 import { ForwardFlow } from './forward-flow';
 import { ForwardPipeline } from './forward-pipeline';
@@ -78,7 +77,6 @@ export class ForwardStage extends RenderStage {
     private _instancedQueue: RenderInstancedQueue;
     private _phaseID = getPhaseID('default');
     private _clearFlag = 0xffffffff;
-    private declare _additiveLightQueue: RenderAdditiveLightQueue;    
     private declare _uiPhase: UIPhase;
 
     constructor () {
@@ -102,7 +100,6 @@ export class ForwardStage extends RenderStage {
             this._renderQueues[i] = convertRenderQueue(this.renderQueues[i]);
         }
 
-        this._additiveLightQueue = new RenderAdditiveLightQueue(this._pipeline as ForwardPipeline);
         this._uiPhase.activate(pipeline);
     }
 
@@ -152,7 +149,6 @@ export class ForwardStage extends RenderStage {
 
         this._instancedQueue.uploadBuffers(cmdBuff);
         this._batchedQueue.uploadBuffers(cmdBuff);
-        this._additiveLightQueue.gatherLightPasses(camera, cmdBuff);
 
         if (camera.clearFlag & ClearFlagBit.COLOR) {
             colors[0].x = camera.clearColor.x;
@@ -170,8 +166,6 @@ export class ForwardStage extends RenderStage {
         this._renderQueues[0].recordCommandBuffer(device, renderPass, cmdBuff);
         this._instancedQueue.recordCommandBuffer(device, renderPass, cmdBuff);
         this._batchedQueue.recordCommandBuffer(device, renderPass, cmdBuff);
-
-        this._additiveLightQueue.recordCommandBuffer(device, renderPass, cmdBuff);
 
         cmdBuff.bindDescriptorSet(SetIndex.GLOBAL, pipeline.descriptorSet);
         this._renderQueues[1].recordCommandBuffer(device, renderPass, cmdBuff);

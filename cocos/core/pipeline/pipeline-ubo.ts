@@ -90,7 +90,6 @@ export class PipelineUBO {
     public static updateCameraUBOView (pipeline: PipelineRuntime, bufferView: Float32Array,
         camera: Camera) {
         const scene = camera.scene ? camera.scene : legacyCC.director.getScene().renderScene;
-        const mainLight = scene.mainLight;
         const sceneData = pipeline.pipelineSceneData;
         const ambient = sceneData.ambient;
         const skybox = sceneData.skybox;
@@ -111,29 +110,10 @@ export class PipelineUBO {
         cv[UBOCamera.EXPOSURE_OFFSET + 2] = isHDR ? 1.0 : 0.0;
         cv[UBOCamera.EXPOSURE_OFFSET + 3] = 1.0 / Camera.standardExposureValue;
 
-        if (mainLight) {
-            const shadowEnable = (mainLight.shadowEnabled && shadowInfo.type === ShadowType.ShadowMap) ? 1.0 : 0.0;
-            const mainLightDir = mainLight.direction;
-            _lightDir.set(mainLightDir.x, mainLightDir.y, mainLightDir.z, shadowEnable);
-            Vec4.toArray(cv, _lightDir, UBOCamera.MAIN_LIT_DIR_OFFSET);
-            Vec3.toArray(cv, mainLight.color, UBOCamera.MAIN_LIT_COLOR_OFFSET);
-            if (mainLight.useColorTemperature) {
-                const colorTempRGB = mainLight.colorTemperatureRGB;
-                cv[UBOCamera.MAIN_LIT_COLOR_OFFSET] *= colorTempRGB.x;
-                cv[UBOCamera.MAIN_LIT_COLOR_OFFSET + 1] *= colorTempRGB.y;
-                cv[UBOCamera.MAIN_LIT_COLOR_OFFSET + 2] *= colorTempRGB.z;
-            }
+        _lightDir.set(0, 0, 1, 0);
+        Vec4.toArray(cv, _lightDir, UBOCamera.MAIN_LIT_DIR_OFFSET);
+        Vec4.toArray(cv, Vec4.ZERO, UBOCamera.MAIN_LIT_COLOR_OFFSET);
 
-            if (isHDR) {
-                cv[UBOCamera.MAIN_LIT_COLOR_OFFSET + 3] = mainLight.illuminance * exposure;
-            } else {
-                cv[UBOCamera.MAIN_LIT_COLOR_OFFSET + 3] = mainLight.illuminance;
-            }
-        } else {
-            _lightDir.set(0, 0, 1, 0);
-            Vec4.toArray(cv, _lightDir, UBOCamera.MAIN_LIT_DIR_OFFSET);
-            Vec4.toArray(cv, Vec4.ZERO, UBOCamera.MAIN_LIT_COLOR_OFFSET);
-        }
 
         const skyColor = ambient.skyColor;
         if (isHDR) {

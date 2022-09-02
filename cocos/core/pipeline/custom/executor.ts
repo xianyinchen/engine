@@ -63,7 +63,6 @@ import { PipelineUBO } from '../pipeline-ubo';
 import { RenderInfo, RenderObject, WebSceneTask, WebSceneTransversal } from './web-scene';
 import { WebSceneVisitor } from './web-scene-visitor';
 import { stringify, parse } from './utils';
-import { RenderAdditiveLightQueue } from '../render-additive-light-queue';
 import { renderProfiler } from '../pipeline-funcs';
 
 class DeviceResource {
@@ -244,105 +243,8 @@ class BlitDesc {
         const vb = devicePass.genQuadVertexData(SurfaceTransform.IDENTITY, new Rect(0, 0, width, height));
         this._screenQuad!.quadVB!.update(vb);
     }
-    private _gatherVolumeLights (camera: Camera) {
-        if (!camera.scene) { return; }
-        const context = this._queue!.devicePass.context;
-        const pipeline = context.pipeline;
-        const cmdBuff = context.commandBuffer;
-
-        const sphereLights = camera.scene.sphereLights;
-        const spotLights = camera.scene.spotLights;
-        const _sphere = Sphere.create(0, 0, 0, 1);
-        const _vec4Array = new Float32Array(4);
-        const exposure = camera.exposure;
-
-        let idx = 0;
-        const maxLights = UBODeferredLight.LIGHTS_PER_PASS;
-        const elementLen = Vec4.length; // sizeof(vec4) / sizeof(float32)
-        const fieldLen = elementLen * maxLights;
-
-        for (let i = 0; i < sphereLights.length && idx < maxLights; i++, ++idx) {
-            const light = sphereLights[i];
-            Sphere.set(_sphere, light.position.x, light.position.y, light.position.z, light.range);
-            if (intersect.sphereFrustum(_sphere, camera.frustum)) {
-                // cc_lightPos
-                Vec3.toArray(_vec4Array, light.position);
-                _vec4Array[3] = 0;
-                this._lightBufferData.set(_vec4Array, idx * elementLen);
-
-                // cc_lightColor
-                Vec3.toArray(_vec4Array, light.color);
-                if (light.useColorTemperature) {
-                    const tempRGB = light.colorTemperatureRGB;
-                    _vec4Array[0] *= tempRGB.x;
-                    _vec4Array[1] *= tempRGB.y;
-                    _vec4Array[2] *= tempRGB.z;
-                }
-
-                if (pipeline.pipelineSceneData.isHDR) {
-                    _vec4Array[3] = light.luminance * exposure * this._lightMeterScale;
-                } else {
-                    _vec4Array[3] = light.luminance;
-                }
-
-                this._lightBufferData.set(_vec4Array, idx * elementLen + fieldLen * 1);
-
-                // cc_lightSizeRangeAngle
-                _vec4Array[0] = light.size;
-                _vec4Array[1] = light.range;
-                _vec4Array[2] = 0.0;
-                this._lightBufferData.set(_vec4Array, idx * elementLen + fieldLen * 2);
-            }
-        }
-
-        for (let i = 0; i < spotLights.length && idx < maxLights; i++, ++idx) {
-            const light = spotLights[i];
-            Sphere.set(_sphere, light.position.x, light.position.y, light.position.z, light.range);
-            if (intersect.sphereFrustum(_sphere, camera.frustum)) {
-                // cc_lightPos
-                Vec3.toArray(_vec4Array, light.position);
-                _vec4Array[3] = 1;
-                this._lightBufferData.set(_vec4Array, idx * elementLen + fieldLen * 0);
-
-                // cc_lightColor
-                Vec3.toArray(_vec4Array, light.color);
-                if (light.useColorTemperature) {
-                    const tempRGB = light.colorTemperatureRGB;
-                    _vec4Array[0] *= tempRGB.x;
-                    _vec4Array[1] *= tempRGB.y;
-                    _vec4Array[2] *= tempRGB.z;
-                }
-                if (pipeline.pipelineSceneData.isHDR) {
-                    _vec4Array[3] = light.luminance * exposure * this._lightMeterScale;
-                } else {
-                    _vec4Array[3] = light.luminance;
-                }
-                this._lightBufferData.set(_vec4Array, idx * elementLen + fieldLen * 1);
-
-                // cc_lightSizeRangeAngle
-                _vec4Array[0] = light.size;
-                _vec4Array[1] = light.range;
-                _vec4Array[2] = light.spotAngle;
-                this._lightBufferData.set(_vec4Array, idx * elementLen + fieldLen * 2);
-
-                // cc_lightDir
-                Vec3.toArray(_vec4Array, light.direction);
-                this._lightBufferData.set(_vec4Array, idx * elementLen + fieldLen * 3);
-            }
-        }
-
-        // the count of lights is set to cc_lightDir[0].w
-        const offset = fieldLen * 3 + 3;
-        this._lightBufferData.set([idx], offset);
-
-        cmdBuff.updateBuffer(this._lightVolumeBuffer!, this._lightBufferData);
-    }
     update () {
         this._updateScreenVB();
-        if (this.blit.sceneFlags & SceneFlags.VOLUMETRIC_LIGHTING
-            && this.blit.camera) {
-            this._gatherVolumeLights(this.blit.camera);
-        }
         this._stageDesc!.update();
     }
 
@@ -352,22 +254,7 @@ class BlitDesc {
         }
         const pass = this.blit.material!.passes[0];
         const device = this._queue!.devicePass.context.device;
-        this._stageDesc = device.createDescriptorSet(new DescriptorSetInfo(pass.localSetLayout));
-        if (this.blit.sceneFlags & SceneFlags.VOLUMETRIC_LIGHTING) {
-            let totalSize = Float32Array.BYTES_PER_ELEMENT * 4 * 4 * UBODeferredLight.LIGHTS_PER_PASS;
-            totalSize = Math.ceil(totalSize / device.capabilities.uboOffsetAlignment) * device.capabilities.uboOffsetAlignment;
-
-            this._lightVolumeBuffer = device.createBuffer(new BufferInfo(
-                BufferUsageBit.UNIFORM | BufferUsageBit.TRANSFER_DST,
-                MemoryUsageBit.HOST | MemoryUsageBit.DEVICE,
-                totalSize,
-                device.capabilities.uboOffsetAlignment,
-            ));
-
-            const deferredLitsBufView = device.createBuffer(new BufferViewInfo(this._lightVolumeBuffer, 0, totalSize));
-            this._lightBufferData = new Float32Array(totalSize / Float32Array.BYTES_PER_ELEMENT);
-            this._stageDesc.bindBuffer(UBOForwardLight.BINDING, deferredLitsBufView);
-        }
+        this._stageDesc = device.createDescriptorSet(new DescriptorSetInfo(pass.localSetLayout));       
         const _localUBO = device.createBuffer(new BufferInfo(
             BufferUsageBit.UNIFORM | BufferUsageBit.TRANSFER_DST,
             MemoryUsageBit.DEVICE,
@@ -450,7 +337,6 @@ class SubmitInfo {
     public batches = new Set<BatchedBuffer>();
     public opaqueList: RenderInfo[] = [];
     public transparentList: RenderInfo[] = [];
-    public additiveLight: RenderAdditiveLightQueue | null = null;
 }
 
 class RenderPassLayoutInfo {
@@ -817,10 +703,6 @@ class DevicePreSceneTask extends WebSceneTask {
             }
         }
         const pipeline = this._currentQueue.devicePass.context.pipeline;
-        if (sceneFlag & SceneFlags.DEFAULT_LIGHTING) {
-            this._submitInfo.additiveLight = new RenderAdditiveLightQueue(pipeline);
-            this._submitInfo.additiveLight.gatherLightPasses(this.camera, this._cmdBuff);
-        }
         this._submitInfo.opaqueList.sort(this._opaqueCompareFn);
         this._submitInfo.transparentList.sort(this._transparentCompareFn);
     }
@@ -1098,12 +980,6 @@ class DeviceSceneTask extends WebSceneTask {
         }
     }
     private _recordAdditiveLights () {
-        const devicePass = this._currentQueue.devicePass;
-        const submitMap = devicePass.submitMap;
-        const context = devicePass.context;
-        submitMap.get(this.camera!)?.additiveLight?.recordCommandBuffer(context.device,
-            this._renderPass,
-            devicePass.context.commandBuffer);
     }
 
     private _recordPlanarShadows () {

@@ -167,11 +167,6 @@ export class RenderScene {
      * @returns void
      */
     public update (stamp: number) {
-        const mainLight = this._mainLight;
-        if (mainLight) {
-            mainLight.update();
-        }
-
         const sphereLights = this._sphereLights;
         for (let i = 0; i < sphereLights.length; i++) {
             const light = sphereLights[i];
