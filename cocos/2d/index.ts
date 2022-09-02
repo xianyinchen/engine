@@ -45,6 +45,8 @@ export * from './renderer/render-data';
 export * from './renderer/base';
 export * from './renderer/deprecated';
 export * from './utils';
+export{ MotionStreak } from '../particle-2d/motion-streak-2d';
+export{ MotionStreakAssemblerManager } from '../particle-2d/motion-streak-2d-assembler';
 
 export {
     MeshBuffer,
