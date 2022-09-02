@@ -597,7 +597,7 @@ export class Node extends BaseNode implements CustomSerializable {
         const curDirtyBit = dirtyBit | TransformBit.POSITION;
 
         const hasChangedFlags = this._hasChangedFlags;
-        if (this.isValid && (parent.dirtyFlags & hasChangedFlags & curDirtyBit) != curDirtyBit) {
+        if (this.isValid && (this._dirtyFlags & hasChangedFlags & curDirtyBit) != curDirtyBit) {
             this._dirtyFlags |= curDirtyBit;
             this.hasChangedFlags = hasChangedFlags | curDirtyBit;
             l = this.children.length;
