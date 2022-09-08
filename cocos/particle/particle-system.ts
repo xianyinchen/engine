@@ -25,6 +25,7 @@
 
 // eslint-disable-next-line max-len
 import { ccclass, help, executeInEditMode, executionOrder, menu, tooltip, displayOrder, type, range, displayName, formerlySerializedAs, override, radian, serializable, visible } from 'cc.decorator';
+import { CCClass } from '../core/data';
 import { EDITOR } from 'internal:constants';
 import { Renderer } from '../core/components/renderer';
 import { ModelRenderer } from '../core/components/model-renderer';
@@ -56,6 +57,7 @@ import { Camera } from '../core/renderer/scene';
 import { ParticleCuller } from './particle-culler';
 import { NoiseModule } from './animator/noise-module';
 import { CCBoolean, CCFloat } from '../core';
+import { CCInteger, setClassAttr } from '../core/data/utils/attribute';
 
 const _world_mat = new Mat4();
 const _world_rol = new Quat();
@@ -71,9 +73,6 @@ export class ParticleSystem extends ModelRenderer {
     /**
      * @zh 粒子系统能生成的最大粒子数量。
      */
-    @range([0, Number.POSITIVE_INFINITY])
-    @displayOrder(1)
-    @tooltip('i18n:particle_system.capacity')
     public get capacity () {
         return this._capacity;
     }
@@ -90,147 +89,69 @@ export class ParticleSystem extends ModelRenderer {
     /**
      * @zh 粒子初始颜色。
      */
-    @type(GradientRange)
-    @serializable
-    @displayOrder(8)
-    @tooltip('i18n:particle_system.startColor')
     public startColor = new GradientRange();
-
-    @type(Space)
-    @serializable
-    @displayOrder(9)
-    @tooltip('i18n:particle_system.scaleSpace')
     public scaleSpace = Space.Local;
-
-    @serializable
-    @displayOrder(10)
-    @tooltip('i18n:particle_system.startSize3D')
     public startSize3D = false;
 
     /**
      * @zh 粒子初始大小。
      */
-    @formerlySerializedAs('startSize')
-    @range([0, 1])
-    @type(CurveRange)
-    @displayOrder(10)
-    @tooltip('i18n:particle_system.startSizeX')
     public startSizeX = new CurveRange();
 
     /**
      * @zh 粒子初始大小。
      */
-    @type(CurveRange)
-    @serializable
-    @range([0, 1])
-    @displayOrder(10)
-    @tooltip('i18n:particle_system.startSizeY')
-    @visible(function (this: ParticleSystem): boolean { return this.startSize3D; })
     public startSizeY = new CurveRange();
 
     /**
      * @zh 粒子初始大小。
      */
-    @type(CurveRange)
-    @serializable
-    @range([0, 1])
-    @displayOrder(10)
-    @tooltip('i18n:particle_system.startSizeZ')
-    @visible(function (this: ParticleSystem): boolean { return this.startSize3D; })
     public startSizeZ = new CurveRange();
 
     /**
      * @zh 粒子初始速度。
      */
-    @type(CurveRange)
-    @serializable
-    @range([-1, 1])
-    @displayOrder(11)
-    @tooltip('i18n:particle_system.startSpeed')
     public startSpeed = new CurveRange();
-
-    @serializable
-    @displayOrder(12)
-    @tooltip('i18n:particle_system.startRotation3D')
     public startRotation3D = false;
 
     /**
      * @zh 粒子初始旋转角度。
      */
-    @type(CurveRange)
-    @serializable
-    @range([-1, 1])
-    @radian
-    @displayOrder(12)
-    @tooltip('i18n:particle_system.startRotationX')
-    @visible(function (this: ParticleSystem): boolean { return this.startRotation3D; })
     public startRotationX = new CurveRange();
 
     /**
      * @zh 粒子初始旋转角度。
      */
-    @type(CurveRange)
-    @serializable
-    @range([-1, 1])
-    @radian
-    @displayOrder(12)
-    @tooltip('i18n:particle_system.startRotationY')
-    @visible(function (this: ParticleSystem): boolean { return this.startRotation3D; })
     public startRotationY = new CurveRange();
 
     /**
      * @zh 粒子初始旋转角度。
      */
-    @type(CurveRange)
-    @formerlySerializedAs('startRotation')
-    @range([-1, 1])
-    @radian
-    @displayOrder(12)
-    @tooltip('i18n:particle_system.startRotationZ')
-    @visible(function (this: ParticleSystem): boolean { return this.startRotation3D; })
     public startRotationZ = new CurveRange();
 
     /**
      * @zh 粒子系统开始运行后，延迟粒子发射的时间。
      */
-    @type(CurveRange)
-    @serializable
-    @range([0, 1])
-    @displayOrder(6)
-    @tooltip('i18n:particle_system.startDelay')
     public startDelay = new CurveRange();
 
     /**
      * @zh 粒子生命周期。
      */
-    @type(CurveRange)
-    @serializable
-    @range([0, 1])
-    @displayOrder(7)
-    @tooltip('i18n:particle_system.startLifetime')
     public startLifetime = new CurveRange();
 
     /**
      * @zh 粒子系统运行时间。
      */
-    @serializable
-    @displayOrder(0)
-    @tooltip('i18n:particle_system.duration')
     public duration = 5.0;
 
     /**
      * @zh 粒子系统是否循环播放。
      */
-    @serializable
-    @displayOrder(2)
-    @tooltip('i18n:particle_system.loop')
     public loop = true;
 
     /**
      * @zh 选中之后，粒子系统会以已播放完一轮之后的状态开始播放（仅当循环播放启用时有效）。
      */
-    @displayOrder(3)
-    @tooltip('i18n:particle_system.prewarm')
     get prewarm () {
         return this._prewarm;
     }
@@ -245,10 +166,6 @@ export class ParticleSystem extends ModelRenderer {
     /**
      * @zh 选择粒子系统所在的坐标系[[Space]]。<br>
      */
-    @type(Space)
-    @serializable
-    @displayOrder(4)
-    @tooltip('i18n:particle_system.simulationSpace')
     get simulationSpace () {
         return this._simulationSpace;
     }
@@ -266,66 +183,38 @@ export class ParticleSystem extends ModelRenderer {
     /**
      * @zh 控制整个粒子系统的更新速度。
      */
-    @serializable
-    @displayOrder(5)
-    @tooltip('i18n:particle_system.simulationSpeed')
     public simulationSpeed = 1.0;
 
     /**
      * @zh 粒子系统加载后是否自动开始播放。
      */
-    @serializable
-    @displayOrder(2)
-    @tooltip('i18n:particle_system.playOnAwake')
     public playOnAwake = true;
 
     /**
      * @zh 粒子受重力影响的重力系数。
      */
-    @type(CurveRange)
-    @serializable
-    @range([-1, 1])
-    @displayOrder(13)
-    @tooltip('i18n:particle_system.gravityModifier')
     public gravityModifier = new CurveRange();
 
     // emission module
     /**
      * @zh 每秒发射的粒子数。
      */
-    @type(CurveRange)
-    @serializable
-    @range([0, 1])
-    @displayOrder(14)
-    @tooltip('i18n:particle_system.rateOverTime')
     public rateOverTime = new CurveRange();
 
     /**
      * @zh 每移动单位距离发射的粒子数。
      */
-    @type(CurveRange)
-    @serializable
-    @range([0, 1])
-    @displayOrder(15)
-    @tooltip('i18n:particle_system.rateOverDistance')
     public rateOverDistance = new CurveRange();
 
     /**
      * @zh 设定在指定时间发射指定数量的粒子的 burst 的数量。
      */
-    @type([Burst])
-    @serializable
-    @displayOrder(16)
-    @tooltip('i18n:particle_system.bursts')
     public bursts: Burst[] = [];
 
     /**
      * @en Enable particle culling switch. Open it to enable particle culling. If enabled will generate emitter bounding box and emitters outside the frustum will be culled.
      * @zh 粒子剔除开关，如果打开将会生成一个发射器包围盒，包围盒在相机外发射器将被剔除。
      */
-    @type(CCBoolean)
-    @displayOrder(27)
-    @tooltip('i18n:particle_system.renderCulling')
     set renderCulling (value: boolean) {
         this._renderCulling = value;
         if (value) {
@@ -340,16 +229,12 @@ export class ParticleSystem extends ModelRenderer {
         return this._renderCulling;
     }
 
-    @serializable
     private _renderCulling = false;
 
     /**
      * @en Particle culling mode option. Includes pause, pause and catchup, always simulate.
      * @zh 粒子剔除模式选择。包括暂停模拟，暂停以后快进继续以及不间断模拟。
      */
-    @type(CullingMode)
-    @displayOrder(17)
-    @tooltip('i18n:particle_system.cullingMode')
     get cullingMode () {
         return this._cullingMode;
     }
@@ -358,7 +243,6 @@ export class ParticleSystem extends ModelRenderer {
         this._cullingMode = value;
     }
 
-    @serializable
     _cullingMode = CullingMode.Pause;
 
     public static CullingMode = CullingMode;
@@ -367,9 +251,6 @@ export class ParticleSystem extends ModelRenderer {
      * @en Particle bounding box half width.
      * @zh 粒子包围盒半宽。
      */
-    @type(CCFloat)
-    @displayOrder(17)
-    @tooltip('i18n:particle_system.aabbHalfX')
     get aabbHalfX () {
         const res = this.getBoundingX();
         if (res) {
@@ -383,16 +264,12 @@ export class ParticleSystem extends ModelRenderer {
         this.setBoundingX(value);
     }
 
-    @serializable
     private _aabbHalfX = 0;
 
     /**
      * @en Particle bounding box half height.
      * @zh 粒子包围盒半高。
      */
-    @type(CCFloat)
-    @displayOrder(17)
-    @tooltip('i18n:particle_system.aabbHalfY')
     get aabbHalfY () {
         const res = this.getBoundingY();
         if (res) {
@@ -406,16 +283,12 @@ export class ParticleSystem extends ModelRenderer {
         this.setBoundingY(value);
     }
 
-    @serializable
     private _aabbHalfY = 0;
 
     /**
      * @en Particle bounding box half depth.
      * @zh 粒子包围盒半深。
      */
-    @type(CCFloat)
-    @displayOrder(17)
-    @tooltip('i18n:particle_system.aabbHalfZ')
     get aabbHalfZ () {
         const res = this.getBoundingZ();
         if (res) {
@@ -429,15 +302,12 @@ export class ParticleSystem extends ModelRenderer {
         this.setBoundingZ(value);
     }
 
-    @serializable
     private _aabbHalfZ = 0;
 
     /**
      * @en Culling module data before serialize.
      * @zh 序列化之前剔除不需要的模块数据。
      */
-    @displayOrder(28)
-    @tooltip('i18n:particle_system.dataCulling')
     get dataCulling () {
         return this._dataCulling;
     }
@@ -446,15 +316,8 @@ export class ParticleSystem extends ModelRenderer {
         this._dataCulling = value;
     }
 
-    @serializable
-    @formerlySerializedAs('enableCulling')
     private _dataCulling = false;
 
-    @override
-    @visible(false)
-    @type(Material)
-    @serializable
-    @displayName('Materials')
     get sharedMaterials () {
         // if we don't create an array copy, the editor will modify the original array directly.
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -467,14 +330,10 @@ export class ParticleSystem extends ModelRenderer {
     }
 
     // color over lifetime module
-    @type(ColorOverLifetimeModule)
     _colorOverLifetimeModule: ColorOverLifetimeModule | null = null;
     /**
      * @zh 颜色控制模块。
      */
-    @type(ColorOverLifetimeModule)
-    @displayOrder(23)
-    @tooltip('i18n:particle_system.colorOverLifetimeModule')
     public get colorOverLifetimeModule () {
         if (EDITOR && !legacyCC.GAME_VIEW) {
             if (!this._colorOverLifetimeModule) {
@@ -491,14 +350,10 @@ export class ParticleSystem extends ModelRenderer {
     }
 
     // shape module
-    @type(ShapeModule)
     _shapeModule: ShapeModule | null = null;
     /**
      * @zh 粒子发射器模块。
      */
-    @type(ShapeModule)
-    @displayOrder(17)
-    @tooltip('i18n:particle_system.shapeModule')
     public get shapeModule () {
         if (EDITOR && !legacyCC.GAME_VIEW) {
             if (!this._shapeModule) {
@@ -515,14 +370,10 @@ export class ParticleSystem extends ModelRenderer {
     }
 
     // size over lifetime module
-    @type(SizeOvertimeModule)
     _sizeOvertimeModule: SizeOvertimeModule | null = null;
     /**
      * @zh 粒子大小模块。
      */
-    @type(SizeOvertimeModule)
-    @displayOrder(21)
-    @tooltip('i18n:particle_system.sizeOvertimeModule')
     public get sizeOvertimeModule () {
         if (EDITOR && !legacyCC.GAME_VIEW) {
             if (!this._sizeOvertimeModule) {
@@ -539,14 +390,10 @@ export class ParticleSystem extends ModelRenderer {
     }
 
     // velocity overtime module
-    @type(VelocityOvertimeModule)
     _velocityOvertimeModule: VelocityOvertimeModule | null = null;
     /**
      * @zh 粒子速度模块。
      */
-    @type(VelocityOvertimeModule)
-    @displayOrder(18)
-    @tooltip('i18n:particle_system.velocityOvertimeModule')
     public get velocityOvertimeModule () {
         if (EDITOR && !legacyCC.GAME_VIEW) {
             if (!this._velocityOvertimeModule) {
@@ -563,14 +410,10 @@ export class ParticleSystem extends ModelRenderer {
     }
 
     // force overTime module
-    @type(ForceOvertimeModule)
     _forceOvertimeModule: ForceOvertimeModule | null = null;
     /**
      * @zh 粒子加速度模块。
      */
-    @type(ForceOvertimeModule)
-    @displayOrder(19)
-    @tooltip('i18n:particle_system.forceOvertimeModule')
     public get forceOvertimeModule () {
         if (EDITOR && !legacyCC.GAME_VIEW) {
             if (!this._forceOvertimeModule) {
@@ -587,15 +430,11 @@ export class ParticleSystem extends ModelRenderer {
     }
 
     // limit velocity overtime module
-    @type(LimitVelocityOvertimeModule)
     _limitVelocityOvertimeModule: LimitVelocityOvertimeModule | null = null;
 
     /**
      * @zh 粒子限制速度模块（只支持 CPU 粒子）。
      */
-    @type(LimitVelocityOvertimeModule)
-    @displayOrder(20)
-    @tooltip('i18n:particle_system.limitVelocityOvertimeModule')
     public get limitVelocityOvertimeModule () {
         if (EDITOR && !legacyCC.GAME_VIEW) {
             if (!this._limitVelocityOvertimeModule) {
@@ -612,14 +451,10 @@ export class ParticleSystem extends ModelRenderer {
     }
 
     // rotation overtime module
-    @type(RotationOvertimeModule)
     _rotationOvertimeModule: RotationOvertimeModule | null = null;
     /**
      * @zh 粒子旋转模块。
      */
-    @type(RotationOvertimeModule)
-    @displayOrder(22)
-    @tooltip('i18n:particle_system.rotationOvertimeModule')
     public get rotationOvertimeModule () {
         if (EDITOR && !legacyCC.GAME_VIEW) {
             if (!this._rotationOvertimeModule) {
@@ -636,14 +471,10 @@ export class ParticleSystem extends ModelRenderer {
     }
 
     // texture animation module
-    @type(TextureAnimationModule)
     _textureAnimationModule: TextureAnimationModule | null = null;
     /**
      * @zh 贴图动画模块。
      */
-    @type(TextureAnimationModule)
-    @displayOrder(24)
-    @tooltip('i18n:particle_system.textureAnimationModule')
     public get textureAnimationModule () {
         if (EDITOR && !legacyCC.GAME_VIEW) {
             if (!this._textureAnimationModule) {
@@ -660,11 +491,8 @@ export class ParticleSystem extends ModelRenderer {
     }
 
     // noise module
-    @type(NoiseModule)
     private _noiseModule: NoiseModule | null = null;
 
-    @type(NoiseModule)
-    @displayOrder(24)
     public get noiseModule () {
         if (EDITOR) {
             if (!this._noiseModule) {
@@ -681,14 +509,10 @@ export class ParticleSystem extends ModelRenderer {
     }
 
     // trail module
-    @type(TrailModule)
     _trailModule: TrailModule | null = null;
     /**
      * @zh 粒子轨迹模块。
      */
-    @type(TrailModule)
-    @displayOrder(25)
-    @tooltip('i18n:particle_system.trailModule')
     public get trailModule () {
         if (EDITOR && !legacyCC.GAME_VIEW) {
             if (!this._trailModule) {
@@ -706,10 +530,6 @@ export class ParticleSystem extends ModelRenderer {
     }
 
     // particle system renderer
-    @type(ParticleSystemRenderer)
-    @serializable
-    @displayOrder(26)
-    @tooltip('i18n:particle_system.renderer')
     public renderer: ParticleSystemRenderer = new ParticleSystemRenderer();
 
     /**
@@ -741,13 +561,8 @@ export class ParticleSystem extends ModelRenderer {
 
     private _needAttach: boolean;
 
-    @serializable
     private _prewarm = false;
-
-    @serializable
     private _capacity = 100;
-
-    @serializable
     private _simulationSpace = Space.Local;
 
     public processor: IParticleSystemRenderer = null!;
@@ -1459,3 +1274,278 @@ export class ParticleSystem extends ModelRenderer {
         return out;
     }
 }
+
+CCClass.fastDefine('cc.ParticleSystem', ParticleSystem, {
+    capacity: 100,
+    startColor: new GradientRange(),
+    scaleSpace: Space.Local,
+    startSize3D: true,
+    startSizeX: new CurveRange(),
+    startSizeY: new CurveRange(),
+    startSizeZ: new CurveRange(),
+    startSpeed: new CurveRange(),
+    startRotation3D: false,
+    startRotationX: new CurveRange(),
+    startRotationY: new CurveRange(),
+    startRotationZ: new CurveRange(),
+    startDelay: new CurveRange(),
+    startLifetime: new CurveRange(),
+    duration: 5.0,
+    loop: true,
+    _prewarm: false,
+    _simulationSpace: Space.Local,
+    simulationSpeed: 1.0,
+    playOnAwake: true,
+    gravityModifier: new GradientRange(),
+    rateOverTime: new GradientRange(),
+    rateOverDistance: new GradientRange(),
+    bursts: [],
+    _renderCulling: false,
+    _cullingMode: CullingMode.Pause,
+    _aabbHalfX: 0,
+    _aabbHalfY: 0,
+    _aabbHalfZ: 0,
+    _dataCulling: false,
+    _colorOverLifetimeModule: new ColorOverLifetimeModule(),
+    _shapeModule: new ShapeModule(),
+    _sizeOvertimeModule: new SizeOvertimeModule(),
+    _velocityOvertimeModule: new VelocityOvertimeModule(),
+    _forceOvertimeModule: new ForceOvertimeModule(),
+    _limitVelocityOvertimeModule: new LimitVelocityOvertimeModule(),
+    _rotationOvertimeModule: new RotationOvertimeModule(),
+    _textureAnimationModule: new TextureAnimationModule(),
+    _noiseModule: new NoiseModule(),
+    _trailModule: new TrailModule(),
+    renderer: new ParticleSystemRenderer()
+});
+
+setClassAttr(ParticleSystem, 'capacity', 'type', CCInteger);
+setClassAttr(ParticleSystem, 'capacity', 'range', [0, Number.POSITIVE_INFINITY]);
+setClassAttr(ParticleSystem, 'capacity', 'displayOrder', 1);
+setClassAttr(ParticleSystem, 'capacity', 'tooltip', 'i18n:particle_system.capacity');
+
+setClassAttr(ParticleSystem, '_capacity', 'type', CCBoolean);
+
+setClassAttr(ParticleSystem, 'startColor', 'type', GradientRange);
+setClassAttr(ParticleSystem, 'startColor', 'serializable', true);
+setClassAttr(ParticleSystem, 'startColor', 'displayOrder', 8);
+setClassAttr(ParticleSystem, 'startColor', 'tooltip', 'i18n:particle_system.startColor');
+
+setClassAttr(ParticleSystem, 'scaleSpace', 'type', Space);
+setClassAttr(ParticleSystem, 'scaleSpace', 'serializable', true);
+setClassAttr(ParticleSystem, 'scaleSpace', 'displayOrder', 9);
+setClassAttr(ParticleSystem, 'scaleSpace', 'tooltip', 'i18n:particle_system.scaleSpace');
+
+setClassAttr(ParticleSystem, 'startSize3D', 'type', CCBoolean);
+setClassAttr(ParticleSystem, 'startSize3D', 'serializable', true);
+setClassAttr(ParticleSystem, 'startSize3D', 'displayOrder', 10);
+setClassAttr(ParticleSystem, 'startSize3D', 'tooltip', 'i18n:particle_system.startSize3D');
+
+setClassAttr(ParticleSystem, 'startSizeX', 'type', CurveRange);
+setClassAttr(ParticleSystem, 'startSizeX', 'formerlySerializedAs', 'startSize');
+setClassAttr(ParticleSystem, 'startSizeX', 'range', [0, 1]);
+setClassAttr(ParticleSystem, 'startSizeX', 'displayOrder', 10);
+setClassAttr(ParticleSystem, 'startSizeX', 'visible', function (this: ParticleSystem) { return this.startSize3D; });
+setClassAttr(ParticleSystem, 'startSizeX', 'tooltip', 'i18n:particle_system.startSizeX');
+
+setClassAttr(ParticleSystem, 'startSizeY', 'type', CurveRange);
+setClassAttr(ParticleSystem, 'startSizeY', 'range', [0, 1]);
+setClassAttr(ParticleSystem, 'startSizeY', 'displayOrder', 10);
+setClassAttr(ParticleSystem, 'startSizeY', 'visible', function (this: ParticleSystem) { return this.startSize3D; });
+setClassAttr(ParticleSystem, 'startSizeY', 'tooltip', 'i18n:particle_system.startSizeY');
+
+setClassAttr(ParticleSystem, 'startSizeZ', 'type', CurveRange);
+setClassAttr(ParticleSystem, 'startSizeZ', 'range', [0, 1]);
+setClassAttr(ParticleSystem, 'startSizeZ', 'displayOrder', 10);
+setClassAttr(ParticleSystem, 'startSizeZ', 'visible', function (this: ParticleSystem) { return this.startSize3D; });
+setClassAttr(ParticleSystem, 'startSizeZ', 'tooltip', 'i18n:particle_system.startSizeZ');
+
+setClassAttr(ParticleSystem, 'startSpeed', 'type', CurveRange);
+setClassAttr(ParticleSystem, 'startSpeed', 'range', [-1, 1]);
+setClassAttr(ParticleSystem, 'startSpeed', 'displayOrder', 11);
+setClassAttr(ParticleSystem, 'startSpeed', 'tooltip', 'i18n:particle_system.startSpeed');
+
+setClassAttr(ParticleSystem, 'startRotation3D', 'type', CCBoolean);
+setClassAttr(ParticleSystem, 'startRotation3D', 'displayOrder', 12);
+setClassAttr(ParticleSystem, 'startRotation3D', 'tooltip', 'i18n:particle_system.startRotation3D');
+
+setClassAttr(ParticleSystem, 'startRotationX', 'type', CurveRange);
+setClassAttr(ParticleSystem, 'startRotationX', 'range', [-1, 1]);
+setClassAttr(ParticleSystem, 'startRotationX', 'displayOrder', 12);
+setClassAttr(ParticleSystem, 'startRotationX', 'visible', function (this: ParticleSystem) { return this.startRotation3D; });
+setClassAttr(ParticleSystem, 'startRotationX', 'tooltip', 'i18n:particle_system.startRotationX');
+
+setClassAttr(ParticleSystem, 'startRotationY', 'type', CurveRange);
+setClassAttr(ParticleSystem, 'startRotationY', 'range', [-1, 1]);
+setClassAttr(ParticleSystem, 'startRotationY', 'displayOrder', 12);
+setClassAttr(ParticleSystem, 'startRotationY', 'visible', function (this: ParticleSystem) { return this.startRotation3D; });
+setClassAttr(ParticleSystem, 'startRotationY', 'tooltip', 'i18n:particle_system.startRotationY');
+
+setClassAttr(ParticleSystem, 'startRotationZ', 'type', CurveRange);
+setClassAttr(ParticleSystem, 'startRotationZ', 'range', [-1, 1]);
+setClassAttr(ParticleSystem, 'startRotationZ', 'displayOrder', 12);
+setClassAttr(ParticleSystem, 'startRotationZ', 'visible', function (this: ParticleSystem) { return this.startRotation3D; });
+setClassAttr(ParticleSystem, 'startRotationZ', 'tooltip', 'i18n:particle_system.startRotationZ');
+
+setClassAttr(ParticleSystem, 'startDelay', 'type', CurveRange);
+setClassAttr(ParticleSystem, 'startDelay', 'range', [0, 1]);
+setClassAttr(ParticleSystem, 'startDelay', 'displayOrder', 6);
+setClassAttr(ParticleSystem, 'startDelay', 'tooltip', 'i18n:particle_system.startDelay');
+
+setClassAttr(ParticleSystem, 'startLifetime', 'type', CurveRange);
+setClassAttr(ParticleSystem, 'startLifetime', 'range', [0, 1]);
+setClassAttr(ParticleSystem, 'startLifetime', 'displayOrder', 7);
+setClassAttr(ParticleSystem, 'startLifetime', 'tooltip', 'i18n:particle_system.startLifetime');
+
+setClassAttr(ParticleSystem, 'duration', 'type', CCFloat);
+setClassAttr(ParticleSystem, 'duration', 'displayOrder', 0);
+setClassAttr(ParticleSystem, 'duration', 'tooltip', 'i18n:particle_system.duration');
+
+setClassAttr(ParticleSystem, 'loop', 'type', CCBoolean);
+setClassAttr(ParticleSystem, 'loop', 'displayOrder', 2);
+setClassAttr(ParticleSystem, 'loop', 'tooltip', 'i18n:particle_system.loop');
+
+setClassAttr(ParticleSystem, 'prewarm', 'type', CCBoolean);
+setClassAttr(ParticleSystem, 'prewarm', 'displayOrder', 3);
+setClassAttr(ParticleSystem, 'prewarm', 'tooltip', 'i18n:particle_system.prewarm');
+
+setClassAttr(ParticleSystem, '_prewarm', 'type', CCBoolean);
+
+setClassAttr(ParticleSystem, 'simulationSpace', 'type', Space);
+setClassAttr(ParticleSystem, 'simulationSpace', 'displayOrder', 4);
+setClassAttr(ParticleSystem, 'simulationSpace', 'tooltip', 'i18n:particle_system.simulationSpace');
+
+setClassAttr(ParticleSystem, '_simulationSpace', 'type', Space);
+
+setClassAttr(ParticleSystem, 'simulationSpeed', 'type', CCFloat);
+setClassAttr(ParticleSystem, 'simulationSpeed', 'displayOrder', 5);
+setClassAttr(ParticleSystem, 'simulationSpeed', 'tooltip', 'i18n:particle_system.simulationSpeed');
+
+setClassAttr(ParticleSystem, 'playOnAwake', 'type', CCBoolean);
+setClassAttr(ParticleSystem, 'playOnAwake', 'displayOrder', 2);
+setClassAttr(ParticleSystem, 'playOnAwake', 'tooltip', 'i18n:particle_system.playOnAwake');
+
+setClassAttr(ParticleSystem, 'gravityModifier', 'type', CurveRange);
+setClassAttr(ParticleSystem, 'gravityModifier', 'range', [-1, 1]);
+setClassAttr(ParticleSystem, 'gravityModifier', 'displayOrder', 13);
+setClassAttr(ParticleSystem, 'gravityModifier', 'tooltip', 'i18n:particle_system.gravityModifier');
+
+setClassAttr(ParticleSystem, 'rateOverTime', 'type', CurveRange);
+setClassAttr(ParticleSystem, 'rateOverTime', 'range', [0, 1]);
+setClassAttr(ParticleSystem, 'rateOverTime', 'displayOrder', 14);
+setClassAttr(ParticleSystem, 'rateOverTime', 'tooltip', 'i18n:particle_system.rateOverTime');
+
+setClassAttr(ParticleSystem, 'rateOverDistance', 'type', CurveRange);
+setClassAttr(ParticleSystem, 'rateOverDistance', 'range', [0, 1]);
+setClassAttr(ParticleSystem, 'rateOverDistance', 'displayOrder', 15);
+setClassAttr(ParticleSystem, 'rateOverDistance', 'tooltip', 'i18n:particle_system.rateOverDistance');
+
+setClassAttr(ParticleSystem, 'bursts', 'type', [Burst]);
+setClassAttr(ParticleSystem, 'bursts', 'displayOrder', 16);
+setClassAttr(ParticleSystem, 'bursts', 'tooltip', 'i18n:particle_system.bursts');
+
+setClassAttr(ParticleSystem, 'renderCulling', 'type', CCBoolean);
+setClassAttr(ParticleSystem, 'renderCulling', 'displayOrder', 27);
+setClassAttr(ParticleSystem, 'renderCulling', 'tooltip', 'i18n:particle_system.renderCulling');
+
+setClassAttr(ParticleSystem, '_renderCulling', 'type', CCBoolean);
+
+setClassAttr(ParticleSystem, 'cullingMode', 'type', CullingMode);
+setClassAttr(ParticleSystem, 'cullingMode', 'displayOrder', 17);
+setClassAttr(ParticleSystem, 'cullingMode', 'tooltip', 'i18n:particle_system.cullingMode');
+
+setClassAttr(ParticleSystem, '_cullingMode', 'type', CullingMode);
+
+setClassAttr(ParticleSystem, 'aabbHalfX', 'type', CCFloat);
+setClassAttr(ParticleSystem, 'aabbHalfX', 'displayOrder', 17);
+setClassAttr(ParticleSystem, 'aabbHalfX', 'tooltip', 'i18n:particle_system.aabbHalfX');
+
+setClassAttr(ParticleSystem, '_aabbHalfX', 'type', CCFloat);
+
+setClassAttr(ParticleSystem, 'aabbHalfY', 'type', CCFloat);
+setClassAttr(ParticleSystem, 'aabbHalfY', 'displayOrder', 17);
+setClassAttr(ParticleSystem, 'aabbHalfY', 'tooltip', 'i18n:particle_system.aabbHalfY');
+
+setClassAttr(ParticleSystem, '_aabbHalfY', 'type', CCFloat);
+
+setClassAttr(ParticleSystem, 'aabbHalfZ', 'type', CCFloat);
+setClassAttr(ParticleSystem, 'aabbHalfZ', 'displayOrder', 17);
+setClassAttr(ParticleSystem, 'aabbHalfZ', 'tooltip', 'i18n:particle_system.aabbHalfZ');
+
+setClassAttr(ParticleSystem, '_aabbHalfZ', 'type', CCFloat);
+
+setClassAttr(ParticleSystem, 'dataCulling', 'type', CCBoolean);
+setClassAttr(ParticleSystem, 'dataCulling', 'displayOrder', 28);
+setClassAttr(ParticleSystem, 'dataCulling', 'tooltip', 'i18n:particle_system.dataCulling');
+
+setClassAttr(ParticleSystem, '_dataCulling', 'type', CCBoolean);
+setClassAttr(ParticleSystem, '_dataCulling', 'formerlySerializedAs', 'enableCulling');
+
+setClassAttr(ParticleSystem, 'sharedMaterials', 'override', true);
+setClassAttr(ParticleSystem, 'sharedMaterials', 'type', Material);
+setClassAttr(ParticleSystem, 'sharedMaterials', 'visible', false);
+setClassAttr(ParticleSystem, 'sharedMaterials', 'displayName', 'Materials');
+
+setClassAttr(ParticleSystem, 'colorOverLifetimeModule', 'type', ColorOverLifetimeModule);
+setClassAttr(ParticleSystem, 'colorOverLifetimeModule', 'displayOrder', 23);
+setClassAttr(ParticleSystem, 'colorOverLifetimeModule', 'tooltip', 'i18n:particle_system.colorOverLifetimeModule');
+
+setClassAttr(ParticleSystem, '_colorOverLifetimeModule', 'type', ColorOverLifetimeModule);
+
+setClassAttr(ParticleSystem, 'shapeModule', 'type', ShapeModule);
+setClassAttr(ParticleSystem, 'shapeModule', 'displayOrder', 17);
+setClassAttr(ParticleSystem, 'shapeModule', 'tooltip', 'i18n:particle_system.shapeModule');
+
+setClassAttr(ParticleSystem, '_shapeModule', 'type', ShapeModule);
+
+setClassAttr(ParticleSystem, 'sizeOvertimeModule', 'type', SizeOvertimeModule);
+setClassAttr(ParticleSystem, 'sizeOvertimeModule', 'displayOrder', 17);
+setClassAttr(ParticleSystem, 'sizeOvertimeModule', 'tooltip', 'i18n:particle_system.sizeOvertimeModule');
+
+setClassAttr(ParticleSystem, '_sizeOvertimeModule', 'type', SizeOvertimeModule);
+
+setClassAttr(ParticleSystem, 'velocityOvertimeModule', 'type', VelocityOvertimeModule);
+setClassAttr(ParticleSystem, 'velocityOvertimeModule', 'displayOrder', 18);
+setClassAttr(ParticleSystem, 'velocityOvertimeModule', 'tooltip', 'i18n:particle_system.velocityOvertimeModul');
+
+setClassAttr(ParticleSystem, '_velocityOvertimeModule', 'type', VelocityOvertimeModule);
+
+setClassAttr(ParticleSystem, 'forceOvertimeModule', 'type', ForceOvertimeModule);
+setClassAttr(ParticleSystem, 'forceOvertimeModule', 'displayOrder', 19);
+setClassAttr(ParticleSystem, 'forceOvertimeModule', 'tooltip', 'i18n:particle_system.forceOvertimeModule');
+
+setClassAttr(ParticleSystem, '_forceOvertimeModule', 'type', ForceOvertimeModule);
+
+setClassAttr(ParticleSystem, 'limitVelocityOvertimeModule', 'type', LimitVelocityOvertimeModule);
+setClassAttr(ParticleSystem, 'limitVelocityOvertimeModule', 'displayOrder', 20);
+setClassAttr(ParticleSystem, 'limitVelocityOvertimeModule', 'tooltip', 'i18n:particle_system.limitVelocityOvertimeModule');
+
+setClassAttr(ParticleSystem, '_limitVelocityOvertimeModule', 'type', LimitVelocityOvertimeModule);
+
+setClassAttr(ParticleSystem, 'rotationOvertimeModule', 'type', RotationOvertimeModule);
+setClassAttr(ParticleSystem, 'rotationOvertimeModule', 'displayOrder', 22);
+setClassAttr(ParticleSystem, 'rotationOvertimeModule', 'tooltip', 'i18n:particle_system.rotationOvertimeModule');
+
+setClassAttr(ParticleSystem, '_rotationOvertimeModule', 'type', RotationOvertimeModule);
+
+setClassAttr(ParticleSystem, 'textureAnimationModule', 'type', TextureAnimationModule);
+setClassAttr(ParticleSystem, 'textureAnimationModule', 'displayOrder', 24);
+setClassAttr(ParticleSystem, 'textureAnimationModule', 'tooltip', 'i18n:particle_system.textureAnimationModule');
+
+setClassAttr(ParticleSystem, '_textureAnimationModule', 'type', TextureAnimationModule);
+
+setClassAttr(ParticleSystem, 'noiseModule', 'type', NoiseModule);
+setClassAttr(ParticleSystem, 'noiseModule', 'displayOrder', 24);
+setClassAttr(ParticleSystem, 'noiseModule', 'tooltip', 'i18n:particle_system.noiseModule');
+
+setClassAttr(ParticleSystem, '_noiseModule', 'type', NoiseModule);
+
+setClassAttr(ParticleSystem, 'trailModule', 'type', TrailModule);
+setClassAttr(ParticleSystem, 'trailModule', 'displayOrder', 25);
+setClassAttr(ParticleSystem, 'trailModule', 'tooltip', 'i18n:particle_system.trailModule');
+
+setClassAttr(ParticleSystem, '_trailModule', 'type', TrailModule);
+
+setClassAttr(ParticleSystem, 'renderer', 'type', ParticleSystemRenderer);
+setClassAttr(ParticleSystem, 'renderer', 'displayOrder', 26);
+setClassAttr(ParticleSystem, 'renderer', 'tooltip', 'i18n:particle_system.renderer');
