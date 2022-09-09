@@ -197,6 +197,8 @@ export class StaticVBAccessor extends BufferAccessor {
     }
 
     public recycleChunk (chunk: StaticVBChunk) {
+        if (this._freeLists.length == 0 || this._buffers.length == 0)
+            return;
         const freeList = this._freeLists[chunk.bufferId];
         const buf = this._buffers[chunk.bufferId];
         let offset = chunk.vertexOffset * this.vertexFormatBytes;

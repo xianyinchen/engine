@@ -166,7 +166,7 @@ export const simple: IAssembler = {
         if (!accessor) {
             const device = director.root!.device;
             const batcher = director.root!.batcher2D;
-            const attributes = useTint ? vfmtPosUvTwoColor4B : vfmtPosUvColor4B;
+            const attributes = JSON.parse(JSON.stringify(useTint ? vfmtPosUvTwoColor4B : vfmtPosUvColor4B));
             if (useTint) {
                 accessor = comp._tintAccessor = new StaticVBAccessor(device, attributes, this.vCount);
                 // Register to batcher so that batcher can upload buffers after batching process
@@ -185,7 +185,7 @@ export const simple: IAssembler = {
         batcher.unRegisterBufferAccessor(Number.parseInt(comp.uuid + '_t', 36));
         batcher.unRegisterBufferAccessor(Number.parseInt(comp.uuid, 36));
 
-        if( comp._accessor) {
+        if( comp._accessor ) {
             comp._accessor.destroy()
             comp._accessor = null!;
         }
@@ -220,7 +220,7 @@ export const simple: IAssembler = {
                     }
                 }
             }
-            rd = RenderData.add(useTint ? vfmtPosUvTwoColor4B : vfmtPosUvColor4B, accessor);
+            rd = new RenderData(useTint ? vfmtPosUvTwoColor4B : vfmtPosUvColor4B, accessor);
             rd.resize(vCount, iCount);
             if (!rd.indices || iCount !== rd.indices.length) {
                 rd.indices = new Uint16Array(iCount);
@@ -301,6 +301,7 @@ function updateComponentRenderData (comp: Skeleton, batcher: Batcher2D) {
     // Clear temp var.
     _comp = undefined;
     _vertexEffect = null;
+    _renderData = null;
 }
 
 function updateChunkForClip (clippedVertices: number[], clippedTriangles: number[]) {

@@ -346,6 +346,11 @@ export class RenderData extends BaseRenderData {
             this._accessor.recycleChunk(this.chunk);
             this.chunk = null!;
         }
+
+        if (vertexCount == 0 || indexCount == 0) {
+            return;
+        }
+
         // renderData always have chunk
         this.chunk = this._accessor.allocateChunk(vertexCount, indexCount)!;
         this.updateHash();
