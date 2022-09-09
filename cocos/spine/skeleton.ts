@@ -44,6 +44,7 @@ import { Batcher2D } from '../2d/renderer/batcher-2d';
 import { RenderEntity, RenderEntityType } from '../2d/renderer/render-entity';
 import { RenderDrawInfo } from '../2d/renderer/render-draw-info';
 import { director } from '../core/director';
+import { StaticVBAccessor } from '../2d/renderer/static-vb-accessor';
 
 export const timeScale = 1.0;
 
@@ -621,6 +622,9 @@ export class Skeleton extends UIRenderer {
     protected _socketNodes: Map<number, Node> = new Map();
     protected _cachedSockets: Map<string, number> = new Map<string, number>();
     private _drawInfoList : RenderDrawInfo[] = [];
+
+    public _accessor: StaticVBAccessor = null!;
+    public _tintAccessor: StaticVBAccessor = null!;
 
     private requestDrawInfo (idx: number) {
         if (!this._drawInfoList[idx]) {
@@ -1326,6 +1330,10 @@ export class Skeleton extends UIRenderer {
     }
 
     public onDestroy () {
+        if (this._assembler) {
+            // @ts-ignore
+            this._assembler.removeAccessor(this);
+        }
         this._cleanMaterialCache();
         this._drawList.destroy();
         super.onDestroy();

@@ -155,39 +155,52 @@ function _vfmtFloatSize (useTint: boolean) {
     return getAttributeStride(attributes) >> 2;
 }
 
-let _accessor: StaticVBAccessor = null!;
-let _tintAccessor: StaticVBAccessor = null!;
-
 /**
  * simple 组装器
  * 可通过 `UI.simple` 获取该组装器。
  */
 export const simple: IAssembler = {
     vCount: 32767,
-    ensureAccessor (useTint: boolean) {
-        let accessor = useTint ? _tintAccessor : _accessor;
+    ensureAccessor (comp, useTint: boolean) {
+        let accessor = useTint ? comp._tintAccessor : comp._accessor;
         if (!accessor) {
             const device = director.root!.device;
             const batcher = director.root!.batcher2D;
             const attributes = useTint ? vfmtPosUvTwoColor4B : vfmtPosUvColor4B;
             if (useTint) {
-                accessor = _tintAccessor = new StaticVBAccessor(device, attributes, this.vCount);
+                accessor = comp._tintAccessor = new StaticVBAccessor(device, attributes, this.vCount);
                 // Register to batcher so that batcher can upload buffers after batching process
-                batcher.registerBufferAccessor(Number.parseInt('SPINETINT', 36), _tintAccessor);
+                batcher.registerBufferAccessor(Number.parseInt(comp.uuid + '_t', 36), comp._tintAccessor);
             } else {
-                accessor = _accessor = new StaticVBAccessor(device, attributes, this.vCount);
+                accessor = comp._accessor = new StaticVBAccessor(device, attributes, this.vCount);
                 // Register to batcher so that batcher can upload buffers after batching process
-                batcher.registerBufferAccessor(Number.parseInt('SPINE', 36), _accessor);
+                batcher.registerBufferAccessor(Number.parseInt(comp.uuid, 36), comp._accessor);
             }
         }
         return accessor;
+    },
+
+    removeAccessor (comp) {
+        const batcher = director.root!.batcher2D;
+        batcher.unRegisterBufferAccessor(Number.parseInt(comp.uuid + '_t', 36));
+        batcher.unRegisterBufferAccessor(Number.parseInt(comp.uuid, 36));
+
+        if( comp._accessor) {
+            comp._accessor.destroy()
+            comp._accessor = null!;
+        }
+
+        if( comp._tintAccessor) {
+            comp._tintAccessor.destroy()
+            comp._tintAccessor = null!;
+        }
     },
 
     createData (comp: Skeleton) {
         let rd = comp.renderData;
         if (!rd) {
             const useTint = comp.useTint || comp.isAnimationCached();
-            const accessor = this.ensureAccessor(useTint) as StaticVBAccessor;
+            const accessor = this.ensureAccessor(comp, useTint) as StaticVBAccessor;
             const skins = comp._skeleton!.data.skins;
             let vCount = 0;
             let iCount = 0;
@@ -279,7 +292,7 @@ function updateComponentRenderData (comp: Skeleton, batcher: Batcher2D) {
         if (_vertexEffect) _vertexEffect.end();
     }
     // Ensure mesh buffer update
-    const accessor = _useTint ? _tintAccessor : _accessor;
+    const accessor = _useTint ? comp._tintAccessor :  comp._accessor;
     accessor.getMeshBuffer(_renderData.chunk.bufferId).setDirty();
 
     // sync attached node matrix

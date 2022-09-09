@@ -662,8 +662,8 @@ class ContainerStrategy {
         const locCanvas = legacyCC.game.canvas;
         if (locCanvas) {
             const windowSize = screen.windowSize;
-            locCanvas.width = windowSize.width;
-            locCanvas.height = windowSize.height;
+            if (locCanvas.width != windowSize.width) locCanvas.width = windowSize.width;
+            if (locCanvas.height != windowSize.height) locCanvas.height = windowSize.height;
         }
     }
 }

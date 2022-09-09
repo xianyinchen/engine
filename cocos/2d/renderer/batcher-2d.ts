@@ -350,6 +350,10 @@ export class Batcher2D implements IBatcher {
         this._bufferAccessors.set(key, accessor);
     }
 
+    public unRegisterBufferAccessor (key: number) {
+        this._bufferAccessors.delete(key);
+    }
+
     public updateBuffer (attributes: Attribute[], bid: number) {
         const accessor = this.switchBufferAccessor(attributes);
         // If accessor changed, then current bid will be reset to -1, this check will pass too
