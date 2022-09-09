@@ -153,6 +153,28 @@ export class StaticVBAccessor extends BufferAccessor {
         }
     }
 
+    public gc() {
+        let keys = this._freeLists.keys();
+        do {
+            let bid = keys.next().value;
+            if (bid === undefined) break;
+
+            let buffer = this._buffers[bid];
+            let enters = this._freeLists[bid];
+
+            let total = 0;
+            for (let i = 0; i < enters.length; ++i) {
+                total += enters[i].length;
+            }
+
+            if (buffer.vData.byteLength == total) {
+                buffer.destroy();
+                this._buffers.splice(bid, 1);
+                this._freeLists.splice(bid, 1);
+            }
+        } while (true)
+    }
+
     public allocateChunk (vertexCount: number, indexCount: number) {
         const byteLength = vertexCount * this.vertexFormatBytes;
         let buf: MeshBuffer = null!; let freeList: IFreeEntry[];
@@ -263,6 +285,8 @@ export class StaticVBAccessor extends BufferAccessor {
             newEntry.length = bytes;
             freeList.push(newEntry);
         }
+
+        this.gc();
     }
 
     private _allocateChunkFromEntry (bid: number, eid: number, entry: IFreeEntry, bytes: number) {
