@@ -99,6 +99,7 @@ export class StaticVBAccessor extends BufferAccessor {
     public destroy () {
         // Destroy mesh buffers and reuse free entries
         for (let i = 0; i < this._buffers.length; ++i) {
+            if (null == this._buffers[i]) continue; 
             this._buffers[i].destroy();
             const freeList = this._freeLists[i];
             for (let j = 0; j < freeList.length; ++j) {
@@ -113,6 +114,7 @@ export class StaticVBAccessor extends BufferAccessor {
     public reset () {
         for (let i = 0; i < this._buffers.length; ++i) {
             const buffer = this._buffers[i];
+            if (null == buffer) continue;
             // Reset index buffer
             buffer.indexOffset = 0;
             buffer.reset();
@@ -133,8 +135,10 @@ export class StaticVBAccessor extends BufferAccessor {
 
     public uploadBuffers () {
         for (let i = 0; i < this._buffers.length; ++i) {
-            const firstEntry = this._freeLists[i][0];
             const buffer = this._buffers[i];
+            if (null == buffer) continue;
+
+            const firstEntry = this._freeLists[i][0];            
             // Recognize active buffers
             if (!firstEntry || firstEntry.length < buffer.vData.byteLength) {
                 buffer.uploadBuffers();
@@ -161,7 +165,8 @@ export class StaticVBAccessor extends BufferAccessor {
 
             let buffer = this._buffers[bid];
             let enters = this._freeLists[bid];
-
+            if (buffer == null) continue;
+            
             let total = 0;
             for (let i = 0; i < enters.length; ++i) {
                 total += enters[i].length;
@@ -169,8 +174,8 @@ export class StaticVBAccessor extends BufferAccessor {
 
             if (buffer.vData.byteLength == total) {
                 buffer.destroy();
-                this._buffers.splice(bid, 1);
-                this._freeLists.splice(bid, 1);
+                this._buffers[bid] = null!;
+                this._freeLists[bid] = null!;
             }
         } while (true)
     }
@@ -179,9 +184,15 @@ export class StaticVBAccessor extends BufferAccessor {
         const byteLength = vertexCount * this.vertexFormatBytes;
         let buf: MeshBuffer = null!; let freeList: IFreeEntry[];
         let bid = 0; let eid = -1; let entry: IFreeEntry | null = null;
+        let bid_gc = -1;
         // Loop buffers
         for (let i = 0; i < this._buffers.length; ++i) {
             buf = this._buffers[i];
+            if (null == buf) {
+                bid_gc = i;
+                continue;
+            }
+
             freeList = this._freeLists[i];
             // Loop entries
             for (let e = 0; e < freeList.length; ++e) {
@@ -197,7 +208,12 @@ export class StaticVBAccessor extends BufferAccessor {
         }
         // Allocation fail
         if (!entry) {
-            bid = this._allocateBuffer();
+            if (bid_gc >= 0) {
+                bid = this._allocateBuffer();
+            }
+            else {
+                bid = this._allocateBuffer(bid_gc);
+            }
             buf = this._buffers[bid];
             if (buf && buf.checkCapacity(vertexCount, indexCount)) {
                 eid = 0;
@@ -219,6 +235,7 @@ export class StaticVBAccessor extends BufferAccessor {
     }
 
     public recycleChunk (chunk: StaticVBChunk) {
+        if (null == this._buffers[chunk.bufferId]) return;
         const freeList = this._freeLists[chunk.bufferId];
         const buf = this._buffers[chunk.bufferId];
         let offset = chunk.vertexOffset * this.vertexFormatBytes;
@@ -286,7 +303,9 @@ export class StaticVBAccessor extends BufferAccessor {
             freeList.push(newEntry);
         }
 
-        this.gc();
+        if (!JSB) {
+            this.gc();
+        }
     }
 
     private _allocateChunkFromEntry (bid: number, eid: number, entry: IFreeEntry, bytes: number) {
@@ -307,19 +326,31 @@ export class StaticVBAccessor extends BufferAccessor {
         }
     }
 
-    private _allocateBuffer () {
+    private _allocateBuffer(bid?: number) {
         // Validate length of buffer array
         assertID(this._buffers.length === this._freeLists.length, 9003);
 
         const buffer = new MeshBuffer();
         const vFloatCount = this._vCount * this._floatsPerVertex;
         buffer.initialize(this._device, this._attributes, vFloatCount, this._iCount);
-        this._buffers.push(buffer);
+
+        if (bid) {
+            this._buffers[bid] = buffer;
+        }
+        else {
+            this._buffers.push(buffer);
+        }
         const entry = _entryPool.alloc();
         entry.offset = 0;
         entry.length = buffer.vData.byteLength;
         const freeList = [entry];
-        this._freeLists.push(freeList);
+
+        if (bid) {
+            this._freeLists[bid] = freeList;
+        }
+        else {
+            this._freeLists.push(freeList);
+        }
 
         //sync to native
         // temporarily batcher transports buffers
@@ -327,7 +358,7 @@ export class StaticVBAccessor extends BufferAccessor {
         const batcher = director.root!.batcher2D;
         batcher.syncMeshBuffersToNative(this.id, this._buffers);
 
-        return this._buffers.length - 1;
+        return bid !== undefined ? bid : this._buffers.length - 1;
     }
     static generateID () : number {
         return StaticVBAccessor.ID_COUNT++;
