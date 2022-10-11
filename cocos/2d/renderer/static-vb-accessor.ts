@@ -209,10 +209,10 @@ export class StaticVBAccessor extends BufferAccessor {
         // Allocation fail
         if (!entry) {
             if (bid_gc >= 0) {
-                bid = this._allocateBuffer();
+                bid = this._allocateBuffer(bid_gc);
             }
             else {
-                bid = this._allocateBuffer(bid_gc);
+                bid = this._allocateBuffer();
             }
             buf = this._buffers[bid];
             if (buf && buf.checkCapacity(vertexCount, indexCount)) {
