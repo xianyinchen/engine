@@ -334,7 +334,7 @@ export class StaticVBAccessor extends BufferAccessor {
         const vFloatCount = this._vCount * this._floatsPerVertex;
         buffer.initialize(this._device, this._attributes, vFloatCount, this._iCount);
 
-        if (bid) {
+        if (bid !== undefined) {
             this._buffers[bid] = buffer;
         }
         else {
@@ -345,7 +345,7 @@ export class StaticVBAccessor extends BufferAccessor {
         entry.length = buffer.vData.byteLength;
         const freeList = [entry];
 
-        if (bid) {
+        if (bid !== undefined) {
             this._freeLists[bid] = freeList;
         }
         else {
