@@ -48,6 +48,7 @@ import { getAttributeStride, vfmtPosUvColor } from './vertex-format';
 import { updateOpacity } from '../assembler/utils';
 import { BaseRenderData, MeshRenderData } from './render-data';
 import { UIMeshRenderer } from '../components/ui-mesh-renderer';
+import { ImageAsset, builtinResMgr } from '../../core';
 
 const _dsInfo = new DescriptorSetInfo(null!);
 const m4_1 = new Mat4();
@@ -109,6 +110,8 @@ export class Batcher2D implements IBatcher {
 
     private _meshDataArray :MeshRenderData[] = [];
 
+    private _blankFrame: SpriteFrame = null!;
+
     constructor (private _root: Root) {
         this.device = _root.device;
         this._batches = new CachedArray(64);
@@ -116,10 +119,13 @@ export class Batcher2D implements IBatcher {
     }
 
     public initialize () {
+        this._blankFrame = SpriteFrame.createWithImage(builtinResMgr.get<ImageAsset>('white-texture'));
         return true;
     }
 
     public destroy () {
+        this._blankFrame.destroy();
+        
         for (let i = 0; i < this._batches.length; i++) {
             if (this._batches.array[i]) {
                 this._batches.array[i].destroy(this);
@@ -354,6 +360,9 @@ export class Batcher2D implements IBatcher {
             this._currDepthStencilStateStage = depthStencilStateStage;
             this._currLayer = comp.node.layer;
             if (frame) {
+                if (!frame.getGFXTexture()) {
+                    frame = this._blankFrame;
+                }
                 this._currTexture = frame.getGFXTexture();
                 this._currSampler = frame.getGFXSampler();
                 this._currTextureHash = frame.getHash();

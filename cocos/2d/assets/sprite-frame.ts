@@ -660,6 +660,7 @@ export class SpriteFrame extends Asset {
      * @zh 获取渲染贴图的 GFX 资源
      */
     public getGFXTexture () {
+        if (!this._texture) return null!;
         return this._texture.getGFXTexture();
     }
 
