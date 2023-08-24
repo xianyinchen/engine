@@ -28,7 +28,7 @@ import { IAssembler, IAssemblerManager } from '../2d/renderer/base';
 import { MotionStreak } from './motion-streak-2d';
 import { Vec2, Color } from '../core/math';
 import { IBatcher } from '../2d/renderer/i-batcher';
-import { RenderData } from '../2d/renderer/render-data';
+import { dynamicAtlasManager } from '../2d';
 
 const _tangent = new Vec2();
 // const _miter = new Vec2();
@@ -184,8 +184,8 @@ export const MotionStreakAssembler: IAssembler = {
         if (renderData.nodeDirty) {
             renderData.updateNode(comp);
         }
-        if (renderData.textureDirty && comp.texture) {
-            renderData.updateTexture(comp.texture);
+        if (renderData.textureDirty && comp.spriteFrame) {
+            renderData.updateTexture(comp.spriteFrame);
             renderData.material = comp.getRenderMaterial(0);
         }
         if (renderData.hashDirty) {
@@ -194,6 +194,7 @@ export const MotionStreakAssembler: IAssembler = {
     },
 
     updateRenderData (comp: MotionStreak) {
+        dynamicAtlasManager.packToDynamicAtlas(comp, comp.spriteFrame);
     },
 
     updateColor (comp: MotionStreak) {
@@ -207,6 +208,10 @@ export const MotionStreakAssembler: IAssembler = {
         const vertexCount = renderData.vertexCount;
         const indexCount = renderData.indexCount;
 
+        let atlasw = comp.spriteFrame!.texture.width;
+        let atlasH = comp.spriteFrame!.texture.height;
+        let frameRect = comp.spriteFrame!.rect;
+
         const vData = chunk.vb;
         let vertexOffset = 0;
         for (let i = 0; i < vertexCount; i++) {
@@ -214,8 +219,8 @@ export const MotionStreakAssembler: IAssembler = {
             vData[vertexOffset++] = vert.x;
             vData[vertexOffset++] = vert.y;
             vData[vertexOffset++] = vert.z;
-            vData[vertexOffset++] = vert.u;
-            vData[vertexOffset++] = vert.v;
+            vData[vertexOffset++] = (vert.u * frameRect.height + frameRect.y) / atlasH;
+            vData[vertexOffset++] = (vert.v * frameRect.width + frameRect.x) / atlasw;
             Color.toArray(vData, vert.color, vertexOffset);
             vertexOffset += 4;
         }

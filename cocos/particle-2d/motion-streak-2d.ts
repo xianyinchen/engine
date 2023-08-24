@@ -30,6 +30,7 @@ import { Renderable2D } from '../2d/framework';
 import { Texture2D } from '../core/assets/texture-2d';
 import { IBatcher } from '../2d/renderer/i-batcher';
 import { Vec2 } from '../core';
+import { SpriteFrame } from '../2d';
 
 class Point {
     public point = new Vec2();
@@ -133,15 +134,15 @@ export class MotionStreak extends Renderable2D {
      * @example
      * motionStreak.texture = newTexture;
      */
-    @type(Texture2D)
-    public get texture () {
-        return this._texture;
+    @type(SpriteFrame)
+    public get spriteFrame () {
+        return this._spriteFrame;
     }
 
-    public set texture (val) {
-        if (this._texture === val) return;
+    public set spriteFrame (val) {
+        if (this._spriteFrame === val) return;
 
-        this._texture = val;
+        this._spriteFrame = val;
     }
     /**
      * @en The fast Mode.
@@ -170,7 +171,7 @@ export class MotionStreak extends Renderable2D {
     @serializable
     private _stroke = 64;
     @serializable
-    private _texture: Texture2D | null  = null;
+    private _spriteFrame: SpriteFrame | null  = null;
     @serializable
     private _fastMode = false;
     private _points: Point[] = [];
@@ -228,6 +229,6 @@ export class MotionStreak extends Renderable2D {
      * @deprecated since v3.5.0, this is an engine private interface that will be removed in the future.
      */
     public _render (render: IBatcher) {
-        render.commitComp(this, this.renderData, this._texture, this._assembler, null);
+        render.commitComp(this, this.renderData, this._spriteFrame, this._assembler, null);
     }
 }
