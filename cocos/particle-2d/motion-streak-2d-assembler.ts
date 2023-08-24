@@ -219,8 +219,8 @@ export const MotionStreakAssembler: IAssembler = {
             vData[vertexOffset++] = vert.x;
             vData[vertexOffset++] = vert.y;
             vData[vertexOffset++] = vert.z;
-            vData[vertexOffset++] = (vert.u * frameRect.height + frameRect.y) / atlasH;
-            vData[vertexOffset++] = (vert.v * frameRect.width + frameRect.x) / atlasw;
+            vData[vertexOffset++] = (vert.u * frameRect.width + frameRect.x) / atlasw;
+            vData[vertexOffset++] = (vert.v * frameRect.height + frameRect.y) / atlasH;
             Color.toArray(vData, vert.color, vertexOffset);
             vertexOffset += 4;
         }
