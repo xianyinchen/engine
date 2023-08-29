@@ -61,6 +61,7 @@ export interface IUV {
 interface IVertices {
     rawPosition: Vec3[]; // Original position of the vertex, pixel value
     positions: number[]; // The position of the vertex after being affected by the attribute
+    normals: number[];
     indexes: number[]; // IB
     uv: number[]; // Pixel uv value
     nuv: number[]; // Normalized uv value
@@ -1390,6 +1391,7 @@ export class SpriteFrame extends Asset {
                 this.vertices = {
                     rawPosition: [],
                     positions: [],
+                    normals: [],
                     indexes: vertices.indexes,
                     uv: vertices.uv,
                     nuv: vertices.nuv,
@@ -1507,6 +1509,7 @@ export class SpriteFrame extends Asset {
             this.vertices = {
                 rawPosition: [],
                 positions: [],
+                normals: [],
                 indexes: [],
                 uv: [],
                 nuv: [],
@@ -1596,10 +1599,12 @@ export class SpriteFrame extends Asset {
         temp_matrix.scale(temp_vec3);
         const vertices = this.vertices!;
 
+        const normal = new Vec3(0, 0, 1);
         for (let i = 0; i < vertices.rawPosition.length; i++) {
             const pos = vertices.rawPosition[i];
             Vec3.transformMat4(temp_vec3, pos, temp_matrix);
             Vec3.toArray(vertices.positions, temp_vec3, 3 * i);
+            Vec3.toArray(vertices.normals, normal, 3 * i);
         }
         Vec3.transformMat4(this._minPos, vertices.minPos, temp_matrix);
         Vec3.transformMat4(this._maxPos, vertices.maxPos, temp_matrix);
@@ -1609,6 +1614,7 @@ export class SpriteFrame extends Asset {
         this._mesh = createMesh({
             primitiveMode: PrimitiveMode.TRIANGLE_LIST,
             positions: this.vertices!.positions,
+            normals: this.vertices!.normals,
             uvs: this.vertices!.nuv,
             indices: this.vertices!.indexes,
             minPos: this._minPos,
@@ -1621,7 +1627,9 @@ export class SpriteFrame extends Asset {
             //     Color.WHITE.r, Color.WHITE.g, Color.WHITE.b, Color.WHITE.a],
             attributes: [
                 new Attribute(AttributeName.ATTR_POSITION, Format.RGB32F),
+                new Attribute(AttributeName.ATTR_NORMAL, Format.RGB32F),
                 new Attribute(AttributeName.ATTR_TEX_COORD, Format.RG32F),
+                new Attribute(AttributeName.ATTR_TEX_COORD1, Format.RG32F),
                 // new Attribute(AttributeName.ATTR_COLOR, Format.RGBA8UI, true),
             ],
         });

@@ -162,6 +162,29 @@ export function createMesh (geometry: IGeometry, out?: Mesh, options?: ICreateMe
         stride += info.size;
     }
 
+    if (geometry.uvs && geometry.uvs.length > 0) {
+        attr = null;
+        if (geometry.attributes) {
+            for (const att of geometry.attributes) {
+                if (att.name === AttributeName.ATTR_TEX_COORD1) {
+                    attr = att;
+                    break;
+                }
+            }
+        }
+
+        if (!attr) {
+            attr = _defAttrs[2];
+        }
+
+        const info = FormatInfos[attr.format];
+        attributes.push(attr);
+        vertCount = Math.max(vertCount, Math.floor(geometry.uvs.length / info.count));
+        channels.push({ offset: stride, data: geometry.uvs, attribute: attr });
+        stride += info.size;
+    }
+
+
     if (geometry.customAttributes) {
         for (let k = 0; k < geometry.customAttributes.length; k++) {
             const ca = geometry.customAttributes[k];
