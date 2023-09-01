@@ -285,7 +285,7 @@ function updateComponentRenderData (comp: Skeleton, batcher: Batcher2D) {
     _needColor = false;
     _vertexEffect = comp._effectDelegate && comp._effectDelegate._vertexEffect as any;
 
-    if (nodeColor._val !== 0xffffffff ||  _premultipliedAlpha) {
+    if (_nodeA != 255 || nodeColor._val !== 0xffffffff ||  _premultipliedAlpha) {
         _needColor = true;
     }
 
