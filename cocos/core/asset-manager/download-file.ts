@@ -23,98 +23,98 @@
  THE SOFTWARE.
  */
 
- import { EDITOR } from 'internal:constants';
- import { CompleteCallback, IXHROptions } from './shared';
- 
- type FileProgressCallback = (loaded: number, total: number) => void;
- 
- export default function downloadFile(
-     url: string,
-     options: IXHROptions,
-     onProgress: FileProgressCallback | null | undefined,
-     onComplete: CompleteCallback,
- ) {
-     if (EDITOR) {
-         const xhr = new XMLHttpRequest();
-         const errInfo = `download failed: ${url}, status: `;
-     
-         xhr.open('GET', url, true);
-     
-         if (options.xhrResponseType !== undefined) { xhr.responseType = options.xhrResponseType; }
-         if (options.xhrWithCredentials !== undefined) { xhr.withCredentials = options.xhrWithCredentials; }
-         if (options.xhrMimeType !== undefined && xhr.overrideMimeType) { xhr.overrideMimeType(options.xhrMimeType); }
-         if (options.xhrTimeout !== undefined) { xhr.timeout = options.xhrTimeout; }
-     
-         if (options.xhrHeader) {
-             for (const header in options.xhrHeader) {
-                 xhr.setRequestHeader(header, options.xhrHeader[header]);
-             }
-         }
-     
-         xhr.onload = () => {
-             if (xhr.status === 200 || xhr.status === 0) {
-                 if (onComplete) { onComplete(null, xhr.response); }
-             } else if (onComplete) { onComplete(new Error(`${errInfo}${xhr.status}(no response)`)); }
-         };
-     
-         if (onProgress) {
-             xhr.onprogress = (e) => {
-                 if (e.lengthComputable) {
-                     onProgress(e.loaded, e.total);
-                 }
-             };
-         }
-     
-         xhr.onerror = (ev) => {
-             if (onComplete) { onComplete(new Error(`${errInfo}${xhr.status}(error)`)); }
-         };
-     
-         xhr.ontimeout = () => {
-             if (onComplete) { onComplete(new Error(`${errInfo}${xhr.status}(time out)`)); }
-         };
-     
-         xhr.onabort = () => {
-             if (onComplete) { onComplete(new Error(`${errInfo}${xhr.status}(abort)`)); }
-         };
-     
-         xhr.send(null);
-     }
-     else {
-         const errInfo = `download failed: ${url}, status: `;
- 
-         fetch(url, { method: 'GET' }).then(function (response) {
-             if (response.status >= 200 && response.status < 300) {
-                 return Promise.resolve(response)
-             } else {
-                 return Promise.reject(new Error(response.statusText))
-             }
-         }).then(async function (response) {
-             if (!onProgress) {
-                 return Promise.resolve(response)
-             }
- 
-             const total = Number(response.headers.get('content-length'));
-             const reader = response.body!.getReader();
-             let bytesReceived = 0;
-             while (true) {
-                 const result = await reader.read();
-                 if (result.done) {
-                     console.log('Fetch complete');
-                     break;
-                 }
-                 bytesReceived += result.value.length;
-                 onProgress(bytesReceived, total);
-             }
-             return Promise.resolve(response)
-         }).then(function (response) {
-             if (options.xhrResponseType == 'blob') return response.blob();
-             if (options.xhrResponseType == 'json') return response.json();
-             if (options.xhrResponseType == 'arraybuffer') return response.arrayBuffer();
-         }).then(function (data) {
-             if (onComplete) { onComplete(null, data); }
-         }).catch(function (error) {
-             if (onComplete) { onComplete(new Error(`${errInfo} ${error} (error)`)); }
-         });
-     }
- }
- 
+import { EDITOR } from 'internal:constants';
+import { CompleteCallback, IXHROptions } from './shared';
+
+type FileProgressCallback = (loaded: number, total: number) => void;
+
+export default function downloadFile(
+    url: string,
+    options: IXHROptions,
+    onProgress: FileProgressCallback | null | undefined,
+    onComplete: CompleteCallback,
+) {
+    if (EDITOR) {
+        const xhr = new XMLHttpRequest();
+        const errInfo = `download failed: ${url}, status: `;
+
+        xhr.open('GET', url, true);
+
+        if (options.xhrResponseType !== undefined) { xhr.responseType = options.xhrResponseType; }
+        if (options.xhrWithCredentials !== undefined) { xhr.withCredentials = options.xhrWithCredentials; }
+        if (options.xhrMimeType !== undefined && xhr.overrideMimeType) { xhr.overrideMimeType(options.xhrMimeType); }
+        if (options.xhrTimeout !== undefined) { xhr.timeout = options.xhrTimeout; }
+
+        if (options.xhrHeader) {
+            for (const header in options.xhrHeader) {
+                xhr.setRequestHeader(header, options.xhrHeader[header]);
+            }
+        }
+
+        xhr.onload = () => {
+            if (xhr.status === 200 || xhr.status === 0) {
+                if (onComplete) { onComplete(null, xhr.response); }
+            } else if (onComplete) { onComplete(new Error(`${errInfo}${xhr.status}(no response)`)); }
+        };
+
+        if (onProgress) {
+            xhr.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    onProgress(e.loaded, e.total);
+                }
+            };
+        }
+
+        xhr.onerror = (ev) => {
+            if (onComplete) { onComplete(new Error(`${errInfo}${xhr.status}(error)`)); }
+        };
+
+        xhr.ontimeout = () => {
+            if (onComplete) { onComplete(new Error(`${errInfo}${xhr.status}(time out)`)); }
+        };
+
+        xhr.onabort = () => {
+            if (onComplete) { onComplete(new Error(`${errInfo}${xhr.status}(abort)`)); }
+        };
+
+        xhr.send(null);
+    }
+    else {
+        const errInfo = `download failed: ${url}, status: `;
+
+        fetch(url, { method: 'GET' }).then(function (response) {
+            if (response.status >= 200 && response.status < 300) {
+                return Promise.resolve(response)
+            } else {
+                return Promise.reject(new Error(response.statusText))
+            }
+        }).then(async function (response) {
+            if (!onProgress) {
+                return Promise.resolve(response)
+            }
+
+            const total = Number(response.headers.get('content-length'));
+            const reader = response.body!.getReader();
+            let bytesReceived = 0;
+            while (true) {
+                const result = await reader.read();
+                if (result.done) {
+                    console.log('Fetch complete');
+                    break;
+                }
+                bytesReceived += result.value.length;
+                onProgress(bytesReceived, total);
+            }
+            return Promise.resolve(response)
+        }).then(function (response) {
+            if (options.xhrResponseType == 'text') return response.text();
+            if (options.xhrResponseType == 'blob') return response.blob();
+            if (options.xhrResponseType == 'json') return response.json();
+            if (options.xhrResponseType == 'arraybuffer') return response.arrayBuffer();
+        }).then(function (data) {
+            if (onComplete) { onComplete(null, data); }
+        }).catch(function (error) {
+            if (onComplete) { onComplete(new Error(`${errInfo} ${error} (error)`)); }
+        });
+    }
+}
