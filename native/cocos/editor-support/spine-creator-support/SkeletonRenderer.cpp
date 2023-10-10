@@ -326,7 +326,7 @@ void SkeletonRenderer::render(float /*deltaTime*/) {
         _debugBuffer->reset();
     }
 
-    auto flush = [&]() {
+    auto flush = [&](int32_t index) {
         // fill pre segment indices count field
         if (curDrawInfo) {
             curDrawInfo->setIbCount(curISegLen);
@@ -354,6 +354,7 @@ void SkeletonRenderer::render(float /*deltaTime*/) {
         }
         auto *material = requestMaterial(curBlendSrc, curBlendDst);
         curDrawInfo->setMaterial(material);
+        curDrawInfo->setMixSubNode(index);
         gfx::Texture *texture = curTexture->getGFXTexture();
         gfx::Sampler *sampler = curTexture->getGFXSampler();
         curDrawInfo->setTexture(texture);
@@ -715,9 +716,16 @@ void SkeletonRenderer::render(float /*deltaTime*/) {
         }
 
         curTexture = (cc::Texture2D *)attachmentVertices->_texture->getRealTexture();
+
+        int32_t mixSiblingIndex = -1;            
+        auto boneIndex = slot->getBone().getData().getIndex();
+        if (_mixAttachs.end() != _mixAttachs.find(boneIndex)) {
+            mixSiblingIndex = _mixAttachs[boneIndex];
+        }
+
         // If texture or blendMode change,will change material.
-        if (preTexture != curTexture || preBlendMode != slot->getData().getBlendMode() || isFull) {
-            flush();
+        if (preTexture != curTexture || preBlendMode != slot->getData().getBlendMode() || isFull || mixSiblingIndex >= 0) {
+            flush(mixSiblingIndex);
         }
         if (_enableBatch) {
             uint8_t *vbBuffer = vb.getCurBuffer();

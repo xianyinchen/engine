@@ -130,6 +130,17 @@ void Batcher2d::walk(Node* node, float parentOpacity) { // NOLINT(misc-no-recurs
             for (uint32_t i = 0; i < size; i++) {
                 auto* drawInfo = entity->getRenderDrawInfoAt(i);
                 handleDrawInfo(entity, drawInfo, node);
+
+                auto siblingIndex = drawInfo->getMixSubNode();
+                auto attachs = node->getChildren();
+                if (siblingIndex >= 0 || siblingIndex < attachs.size()) {
+                    auto* mix = attachs[siblingIndex].get();
+
+                    float thisOpacity = entity ? entity->getOpacity() : parentOpacity;
+                    walk(mix, thisOpacity);
+
+                    breakWalk = true;
+                }
             }
             entity->setVBColorDirty(false);
         }

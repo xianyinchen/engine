@@ -148,6 +148,14 @@ public:
         return _texture;
     }
 
+    inline void setMixSubNode(int32_t siblingIndex) {
+        _mixSubNode = siblingIndex;
+    }
+
+    inline int32_t getMixSubNode() {
+        return _mixSubNode;
+    }
+
     inline void setTexture(gfx::Texture* texture) {
         _texture = texture;
     }
@@ -285,6 +293,8 @@ private:
     float* _vbBuffer{nullptr};
     // weak reference
     uint16_t* _ibBuffer{nullptr};
+
+    int32_t _mixSubNode = -1;
 
     union {
         Node* _subNode{nullptr};

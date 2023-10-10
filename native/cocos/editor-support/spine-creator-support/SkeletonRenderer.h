@@ -150,6 +150,9 @@ public:
     cc::Material *requestMaterial(uint16_t blendSrc, uint16_t blendDst);
     void setMaterial(cc::Material *material);
     void setRenderEntity(cc::RenderEntity* entity);
+    void setMixAttachs(ccstd::unordered_map<int32_t, int32_t> mixs) {
+        _mixAttachs = mixs;
+    }
 
 protected:
     void setSkeletonData(SkeletonData *skeletonData, bool ownsSkeletonData);
@@ -185,6 +188,8 @@ protected:
     cc::Material *_material = nullptr;
     ccstd::vector<cc::RenderDrawInfo *> _drawInfoArray;
     ccstd::unordered_map<uint32_t, cc::Material*> _materialCaches;
+
+    ccstd::unordered_map<int32_t, int32_t> _mixAttachs;
 };
 
 } // namespace spine

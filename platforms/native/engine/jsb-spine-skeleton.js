@@ -427,6 +427,12 @@ const cacheManager = require('./jsb-cache-manager');
         if (!this._useAttach && socketNodes.size > 0) {
             this._useAttach = true;
             nativeSkeleton.setAttachEnabled(true);
+
+            const attchs = [];
+            socketNodes.forEach((node, slot)=>{
+                attchs.push(slot, node._siblingIndex);
+            });
+            nativeSkeleton.setMixAttachs(attchs);
         }
     };
 

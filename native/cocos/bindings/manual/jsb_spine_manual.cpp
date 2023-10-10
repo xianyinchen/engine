@@ -213,6 +213,32 @@ static bool js_register_spine_retainSkeletonData(se::State &s) {
 }
 SE_BIND_FUNC(js_register_spine_retainSkeletonData)
 
+static bool js_spine_SkeletonRenderer_setMixAttachs(se::State &s) {
+    CC_UNUSED bool ok = true;
+    const auto &args = s.args();
+    size_t argc = args.size();
+
+    auto _this = SE_THIS_OBJECT<spine::SkeletonRenderer>(s);
+    if (nullptr == _this) return true;
+
+    if (argc == 1) {
+        std::vector<int32_t> slotes;
+        ok = sevalue_to_native(args[0], &slotes);
+        if (ok) {
+            ccstd::unordered_map<int32_t, int32_t> mixs;
+            for (int i = 0; i < slotes.size(); i += 2) {
+                mixs[slotes[i]] = slotes[i + 1];
+            }
+            _this->setMixAttachs(mixs);
+            return true;
+        }
+    }
+
+    SE_REPORT_ERROR("wrong number of arguments: %d", (int)argc);
+    return false;
+}
+SE_BIND_FUNC(js_spine_SkeletonRenderer_setMixAttachs) 
+
 bool register_all_spine_manual(se::Object *obj) {
     // Get the ns
     se::Value nsVal;
@@ -227,6 +253,9 @@ bool register_all_spine_manual(se::Object *obj) {
     ns->defineFunction("initSkeletonData", _SE(js_register_spine_initSkeletonData));
     ns->defineFunction("retainSkeletonData", _SE(js_register_spine_retainSkeletonData));
     ns->defineFunction("disposeSkeletonData", _SE(js_register_spine_disposeSkeletonData));
+
+    auto proto = __jsb_spine_SkeletonRenderer_proto;
+    proto->defineFunction("setMixAttachs", _SE(js_spine_SkeletonRenderer_setMixAttachs));
 
     spine::setSpineObjectDisposeCallback([](void *spineObj) {
         if (!se::NativePtrToObjectMap::isValid()) {
