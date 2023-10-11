@@ -310,6 +310,7 @@ void SkeletonRenderer::render(float /*deltaTime*/) {
     int curBlendMode = -1;
     int preBlendMode = -1;
     uint32_t curISegLen = 0;
+    uint32_t preMixSiblingIndex = -1;
     cc::Texture2D *preTexture = nullptr;
     cc::Texture2D *curTexture = nullptr;
     RenderDrawInfo *curDrawInfo = nullptr;
@@ -724,7 +725,8 @@ void SkeletonRenderer::render(float /*deltaTime*/) {
         }
 
         // If texture or blendMode change,will change material.
-        if (preTexture != curTexture || preBlendMode != slot->getData().getBlendMode() || isFull || mixSiblingIndex >= 0) {
+        if (preTexture != curTexture || preBlendMode != slot->getData().getBlendMode() || isFull || preMixSiblingIndex != mixSiblingIndex) {
+            preMixSiblingIndex = mixSiblingIndex;
             flush(mixSiblingIndex);
         }
         if (_enableBatch) {
