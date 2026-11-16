@@ -27,6 +27,8 @@
  * @module ui-assembler
  */
 
+import { JSB } from 'internal:constants';
+import { warnUIRender } from '../../renderer/ui-render-guard';
 import type { IAssembler } from '../../renderer/base';
 import type { IRenderData, RenderData } from '../../renderer/render-data';
 import type { IBatcher } from '../../renderer/i-batcher';
@@ -49,7 +51,44 @@ class Simple implements IAssembler {
         return renderData;
     }
 
+    private validate (sprite: Sprite, checkIndices = false): boolean {
+        if (JSB) return true;
+        const rd = sprite.renderData;
+        const chunk = rd && rd.chunk;
+        const stride = rd ? rd.floatStride : 0;
+        const buffer = chunk && chunk.meshBuffer;
+        const start = buffer ? buffer.indexOffset : -1;
+        if (!rd || !chunk || !buffer || chunk.released
+            || rd.vertexCount !== 4 || rd.indexCount !== 6 || rd.dataLength !== 4
+            || !Number.isInteger(stride) || stride < 9 || chunk.vb.length !== 4 * stride
+            || chunk.vertexAccessor.getMeshBuffer(chunk.bufferId) !== buffer
+            || chunk.vb.buffer !== buffer.vData.buffer
+            || !Number.isInteger(chunk.vertexOffset) || chunk.vertexOffset < 0 || chunk.vertexOffset + 3 > 65535
+            || chunk.vb.byteOffset !== buffer.vData.byteOffset + chunk.vertexOffset * stride * 4
+            || chunk.vb.byteOffset + chunk.vb.byteLength > buffer.vData.byteOffset + buffer.byteOffset
+            || (checkIndices && (!Number.isInteger(start) || start < 0 || start + 6 > buffer.iData.length))) {
+            warnUIRender('invalid-simple-data', {
+                node: sprite.node.getPathInHierarchy(),
+                component: sprite.uuid,
+                vertexCount: rd && rd.vertexCount,
+                indexCount: rd && rd.indexCount,
+                dataLength: rd && rd.dataLength,
+                stride,
+                bufferId: chunk && chunk.bufferId,
+                released: chunk && chunk.released,
+                vertexOffset: chunk && chunk.vertexOffset,
+                vbLength: chunk && chunk.vb.length,
+                indexOffset: start,
+                ibLength: buffer && buffer.iData.length,
+                action: 'skip-component',
+            });
+            return false;
+        }
+        return true;
+    }
+
     updateRenderData (sprite: Sprite): void {
+        if (!this.validate(sprite)) return;
         const frame = sprite.spriteFrame;
 
         dynamicAtlasManager.packToDynamicAtlas(sprite, frame);
@@ -101,7 +140,7 @@ class Simple implements IAssembler {
         }
 
         const renderData = sprite.renderData;
-        if (!renderData) return;
+        if (!renderData || !this.validate(sprite, true)) return;
         const chunk = renderData.chunk;
         if (sprite._flagChangedVersion !== sprite.node.flagChangedVersion || renderData.vertDirty) {
             // const vb = chunk.vertexAccessor.getVertexBuffer(chunk.bufferId);
@@ -110,6 +149,20 @@ class Simple implements IAssembler {
             sprite._flagChangedVersion = sprite.node.flagChangedVersion;
         }
 
+        if (!JSB) {
+            const stride = renderData.floatStride;
+            for (let i = 0; i < 4; ++i) {
+                const offset = i * stride;
+                if (!Number.isFinite(chunk.vb[offset]) || !Number.isFinite(chunk.vb[offset + 1])
+                    || !Number.isFinite(chunk.vb[offset + 2]) || !Number.isFinite(chunk.vb[offset + 3])
+                    || !Number.isFinite(chunk.vb[offset + 4])) {
+                    warnUIRender('non-finite-simple-vertex', {
+                        node: sprite.node.getPathInHierarchy(), vertex: i, action: 'skip-component',
+                    });
+                    return;
+                }
+            }
+        }
         // quick version
         const vidOrigin = chunk.vertexOffset;
         const meshBuffer = chunk.meshBuffer;
@@ -144,6 +197,7 @@ class Simple implements IAssembler {
             return;
         }
 
+        if (!this.validate(sprite)) return;
         const uiTrans = sprite.node._getUITransformComp()!;
         const dataList: IRenderData[] = renderData.data;
         const cw = uiTrans.width;
@@ -191,6 +245,7 @@ class Simple implements IAssembler {
     updateUVs (sprite: Sprite): void {
         const renderData = sprite.renderData;
         if (!sprite.spriteFrame || !renderData) return;
+        if (!this.validate(sprite)) return;
         const vData = renderData.chunk.vb;
         const uv = sprite.spriteFrame.uv;
         const stride = renderData.floatStride;
@@ -207,6 +262,7 @@ class Simple implements IAssembler {
         const renderData = sprite.renderData;
         if (!renderData) return;
         const vData = renderData.chunk.vb;
+        if (!this.validate(sprite)) return;
         let colorOffset = 5;
         const color = sprite.color;
         const colorR = color.r / 255;

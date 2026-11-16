@@ -23,6 +23,7 @@
 */
 
 import { JSB } from 'internal:constants';
+import { warnUIRender } from './ui-render-guard';
 import { Device, Attribute } from '../../gfx';
 import { MeshBuffer } from './mesh-buffer';
 import { BufferAccessor } from './buffer-accessor';
@@ -43,6 +44,7 @@ const _entryPool = new Pool<IFreeEntry>(() => ({
  * @internal
  */
 export class StaticVBChunk {
+    public released = false;
     // JSB
     public get ib (): Readonly<Uint16Array> {
         return this._ib;
@@ -160,6 +162,11 @@ export class StaticVBAccessor extends BufferAccessor {
     }
 
     public allocateChunk (vertexCount: number, indexCount: number): StaticVBChunk | null {
+        if (!JSB && (!Number.isInteger(vertexCount) || vertexCount < 0 || vertexCount > 65536
+            || !Number.isInteger(indexCount) || indexCount < 0)) {
+            warnUIRender('invalid-allocation', { vertexCount, indexCount, action: 'reject-allocation' });
+            return null;
+        }
         const byteLength = vertexCount * this.vertexFormatBytes;
         if (vertexCount > this._vCount || indexCount > this._iCount) {
             errorID(9004, byteLength);
@@ -198,6 +205,10 @@ export class StaticVBAccessor extends BufferAccessor {
         // Allocation succeed
         if (entry) {
             const vertexOffset = entry.offset / this.vertexFormatBytes;
+            if (!JSB && (!Number.isInteger(vertexOffset) || vertexOffset < 0 || vertexOffset + vertexCount > 65536)) {
+                warnUIRender('invalid-allocation-offset', { bid, vertexOffset, vertexCount, action: 'reject-allocation' });
+                return null;
+            }
             assertIsTrue(Number.isInteger(vertexOffset));
             const vb = new Float32Array(buf.vData.buffer, entry.offset, byteLength >> 2).fill(0);
             this._allocateChunkFromEntry(bid, eid, entry, byteLength);
@@ -209,11 +220,25 @@ export class StaticVBAccessor extends BufferAccessor {
     }
 
     public recycleChunk (chunk: StaticVBChunk): void {
+        if (!JSB && (chunk.released || chunk.vertexAccessor !== this
+            || chunk.meshBuffer !== this._buffers[chunk.bufferId])) {
+            warnUIRender('invalid-recycle', { bufferId: chunk.bufferId, released: chunk.released, action: 'skip-recycle' });
+            return;
+        }
         const freeList = this._freeLists[chunk.bufferId];
         const buf = this._buffers[chunk.bufferId];
         let offset = chunk.vertexOffset * this.vertexFormatBytes;
         let bytes = chunk.vb.byteLength;
         if (bytes === 0) return;
+        // Validate the complete range before mutating the free list.
+        if (!JSB && (!Number.isInteger(offset) || offset < 0 || offset + bytes > buf.vData.byteLength
+            || chunk.vb.buffer !== buf.vData.buffer
+            || chunk.vb.byteOffset !== buf.vData.byteOffset + offset
+            || freeList.some((entry) => offset < entry.offset + entry.length && offset + bytes > entry.offset))) {
+            warnUIRender('overlapping-recycle', { bufferId: chunk.bufferId, offset, bytes, action: 'skip-recycle' });
+            return;
+        }
+        chunk.released = true;
         let recycled = false;
         let i = 0;
         let prevEntry: IFreeEntry | null = null;

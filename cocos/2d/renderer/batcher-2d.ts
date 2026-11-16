@@ -23,6 +23,7 @@
 */
 
 import { DEBUG, JSB, USE_SORTING_2D } from 'internal:constants';
+import { warnUIRender } from './ui-render-guard';
 import { Camera, Model } from '../../render-scene/scene';
 import type { UIStaticBatch } from '../components/ui-static-batch';
 import { Material } from '../../asset/assets/material';
@@ -120,6 +121,7 @@ export class Batcher2D implements IBatcher {
     private declare _drawBatchPool: Pool<DrawBatch2D>;
     private declare _batches: CachedArray<DrawBatch2D>;
     private _currBID = -1;
+    private _guardRejectedBuffers = new Set<MeshBuffer>();
     private _indexStart = 0;
 
     private _emptyMaterial = new Material();
@@ -338,6 +340,7 @@ export class Batcher2D implements IBatcher {
     }
 
     public reset (): void {
+        this._guardRejectedBuffers.clear();
         if (JSB) {
             this._nativeObj.reset();
         } else {
@@ -438,6 +441,12 @@ export class Batcher2D implements IBatcher {
         let bufferID = -1;
         if (renderData && renderData.chunk) {
             if (!renderData.isValid()) return;
+            if (!JSB && (renderData.chunk.released || this._guardRejectedBuffers.has(renderData.chunk.meshBuffer))) {
+                warnUIRender('rejected-component-buffer', {
+                    node: comp.node.getPathInHierarchy(), released: renderData.chunk.released, action: 'skip-component',
+                });
+                return;
+            }
             dataHash = renderData.dataHash;
             mat = renderData.material;
             bufferID = renderData.chunk.bufferId;
@@ -450,10 +459,26 @@ export class Batcher2D implements IBatcher {
         }
         const depthStencilStateStage = comp.stencilStage;
 
-        if (this._currHash !== dataHash || dataHash === 0 || this._currMaterial !== mat
+        // Hash equality is insufficient for identifying a buffer or texture.
+        const resourceMismatch = !JSB && !!renderData && !!renderData.chunk && !renderData._isMeshBuffer && (
+            this._currBID !== bufferID
+            || this._staticVBBuffer !== renderData.chunk.vertexAccessor
+            || this._currTexture !== (frame ? frame.getGFXTexture() : null)
+            || this._currSampler !== (frame ? frame.getGFXSampler() : null));
+        if (resourceMismatch && this._currHash === dataHash && this._currComponent) {
+            warnUIRender('batch-resource-mismatch', {
+                node: comp.node.getPathInHierarchy(),
+                bufferID,
+                previousBufferID: this._currBID,
+                dataHash,
+                action: 'split-batch',
+            });
+        }
+        if (resourceMismatch || this._currHash !== dataHash || dataHash === 0 || this._currMaterial !== mat
             || this._currDepthStencilStateStage !== depthStencilStateStage) {
             // Merge all previous data to a render batch, and update buffer for next render data
             this.autoMergeBatches(this._currComponent!);
+            if (!JSB && renderData && renderData.chunk && this._guardRejectedBuffers.has(renderData.chunk.meshBuffer)) return;
             if (renderData && !renderData._isMeshBuffer) {
                 this.updateBuffer(renderData.vertexFormat, bufferID);
             }
@@ -701,6 +726,28 @@ export class Batcher2D implements IBatcher {
                 return;
             }
             const indexCount = buf.indexOffset - this._indexStart;
+            if (!JSB && (!Number.isInteger(this._indexStart) || this._indexStart < 0
+                || !Number.isInteger(buf.indexOffset) || buf.indexOffset < this._indexStart
+                || buf.indexOffset > buf.iData.length || indexCount % 3 !== 0)) {
+                warnUIRender('invalid-batch-range', {
+                    node: renderComp && renderComp.node.getPathInHierarchy(),
+                    bufferID: bid,
+                    firstIndex: this._indexStart,
+                    indexCount,
+                    indexOffset: buf.indexOffset,
+                    ibLength: buf.iData.length,
+                    action: 'drop-batch',
+                });
+                // Preserve earlier batches; quarantine this buffer until the next frame.
+                this._guardRejectedBuffers.add(buf);
+                buf.indexOffset = Number.isInteger(this._indexStart) && this._indexStart >= 0
+                    && this._indexStart <= buf.iData.length ? this._indexStart : 0;
+                this._indexStart = buf.indexOffset;
+                this._currBID = -1;
+                this._currHash = 0;
+                this.resetRenderStates();
+                return;
+            }
             if (indexCount <= 0) return;
             assertIsTrue(this._indexStart < buf.indexOffset);
             buf.setDirty();
@@ -1192,6 +1239,7 @@ class LocalDescriptorSet  {
 class DescriptorSetCache {
     private _descriptorSetCache = new Map<number, DescriptorSet>();
     private _dsCacheHashByTexture = new Map<number, number>();
+    private _guardDescriptorSets: { textureHash: number; descriptorSet: DescriptorSet }[] = [];
     private _localDescriptorSetCache: LocalDescriptorSet[] = [];
     private declare _localCachePool: Pool<LocalDescriptorSet>;
 
@@ -1215,7 +1263,26 @@ class DescriptorSetCache {
         } else {
             const hash = batch.textureHash ^ batch.samplerHash;
             if (this._descriptorSetCache.has(hash)) {
-                return this._descriptorSetCache.get(hash)!;
+                const cached = this._descriptorSetCache.get(hash)!;
+                const binding = ModelLocalBindings.SAMPLER_SPRITE;
+                if (!JSB && (cached.getTexture(binding) !== batch.texture || cached.getSampler(binding) !== batch.sampler
+                    || cached.layout !== batch.passes[0].localSetLayout)) {
+                    warnUIRender('descriptor-cache-mismatch', {
+                        textureHash: batch.textureHash, samplerHash: batch.samplerHash, action: 'use-separate-descriptor',
+                    });
+                    const existing = this._guardDescriptorSets.find((entry) => entry.descriptorSet.getTexture(binding) === batch.texture
+                        && entry.descriptorSet.getSampler(binding) === batch.sampler
+                        && entry.descriptorSet.layout === batch.passes[0].localSetLayout);
+                    if (existing) return existing.descriptorSet;
+                    _dsInfo.layout = batch.passes[0].localSetLayout;
+                    const descriptorSet = deviceManager.gfxDevice.createDescriptorSet(_dsInfo);
+                    descriptorSet.bindTexture(binding, batch.texture!);
+                    descriptorSet.bindSampler(binding, batch.sampler!);
+                    descriptorSet.update();
+                    this._guardDescriptorSets.push({ textureHash: batch.textureHash, descriptorSet });
+                    return descriptorSet;
+                }
+                return cached;
             } else {
                 _dsInfo.layout = batch.passes[0].localSetLayout;
                 const descriptorSet = deviceManager.gfxDevice.createDescriptorSet(_dsInfo);
@@ -1266,8 +1333,15 @@ class DescriptorSetCache {
     }
 
     public releaseDescriptorSetCache (textureHash: number): void {
+        for (let i = this._guardDescriptorSets.length - 1; i >= 0; --i) {
+            const entry = this._guardDescriptorSets[i];
+            if (entry.textureHash === textureHash) {
+                entry.descriptorSet.destroy();
+                this._guardDescriptorSets.splice(i, 1);
+            }
+        }
         const key = this._dsCacheHashByTexture.get(textureHash);
-        if (key && this._descriptorSetCache.has(key)) {
+        if (key !== undefined && this._descriptorSetCache.has(key)) {
             this._descriptorSetCache.get(key)!.destroy();
             this._descriptorSetCache.delete(key);
             this._dsCacheHashByTexture.delete(textureHash);
@@ -1275,6 +1349,8 @@ class DescriptorSetCache {
     }
 
     public destroy (): void {
+        for (const entry of this._guardDescriptorSets) entry.descriptorSet.destroy();
+        this._guardDescriptorSets.length = 0;
         for (const value of this._descriptorSetCache.values()) {
             value.destroy();
         }
