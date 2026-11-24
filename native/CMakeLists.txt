@@ -2,6 +2,16 @@ if(NOT USE_XR AND NOT USE_AR_MODULE)
     include(${CMAKE_CURRENT_LIST_DIR}/cmake/predefine.cmake)
 endif()
 
+# Existing projects may already have copied the iOS template. Set the default here
+# so they pick up arm64 simulator support when they regenerate Xcode projects.
+if(IOS AND CMAKE_GENERATOR STREQUAL "Xcode" AND NOT CMAKE_OSX_ARCHITECTURES)
+    if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "arm64" AND XCODE_VERSION VERSION_GREATER_EQUAL "14.3")
+        set(CMAKE_OSX_ARCHITECTURES "arm64")
+    else()
+        set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
+    endif()
+endif()
+
 ################################# engine source code ##################################
 set(CWD ${CMAKE_CURRENT_LIST_DIR})
 set(COCOS_SOURCE_LIST)
@@ -255,6 +265,24 @@ if(USE_XR)
 endif()
 
 include(${EXTERNAL_ROOT}/CMakeLists.txt)
+
+# The 3.8 external package ships separate archives for device and arm64 simulator.
+# Resolve the path in Xcode so one generated project can build for either SDK.
+if(IOS AND CMAKE_GENERATOR STREQUAL "Xcode")
+    set(CMAKE_XCODE_ATTRIBUTE_COCOS_IOS_LIBRARY_VARIANT "ios")
+endif()
+if(IOS AND CMAKE_GENERATOR STREQUAL "Xcode" AND CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
+    set(CMAKE_XCODE_ATTRIBUTE_COCOS_IOS_LIBRARY_VARIANT[sdk=iphonesimulator*] "ios-m1-simulator")
+    get_property(_ios_imported_targets DIRECTORY PROPERTY IMPORTED_TARGETS)
+    foreach(_ios_target IN LISTS _ios_imported_targets)
+        get_target_property(_ios_library ${_ios_target} IMPORTED_LOCATION)
+        string(REPLACE "${EXTERNAL_ROOT}/ios/libs/" "${EXTERNAL_ROOT}/$(COCOS_IOS_LIBRARY_VARIANT)/libs/"
+            _ios_sdk_library "${_ios_library}")
+        if(NOT _ios_sdk_library STREQUAL _ios_library)
+            set_property(TARGET ${_ios_target} PROPERTY IMPORTED_LOCATION "${_ios_sdk_library}")
+        endif()
+    endforeach()
+endif()
 
 ##### audio
 if(USE_AUDIO)
@@ -3725,9 +3753,14 @@ if(APPLE)
         "$(inherited)"
         ${CC_EXTERNAL_LIBS}
     )
+    if(IOS AND CMAKE_OSX_ARCHITECTURES)
+        set(_CC_ENGINE_ARCHS "${CMAKE_OSX_ARCHITECTURES}")
+    else()
+        set(_CC_ENGINE_ARCHS "arm64;x86_64")
+    endif()
     set_target_properties(${ENGINE_NAME} PROPERTIES
         XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH "YES"
-        OSX_ARCHITECTURES "arm64;x86_64"
+        OSX_ARCHITECTURES "${_CC_ENGINE_ARCHS}"
         ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/archives
     )
     if(MACOSX)
@@ -3739,9 +3772,9 @@ if(APPLE)
         )
     elseif(IOS)
 
-        if("${XCODE_VERSION}" VERSION_GREATER_EQUAL "15.0")
-            # For Xcode 15 and newer, add extra link flags to fix crash in __cxx_global_var_init.
-            message(STATUS "Using Xcode 15 or newer, adding extra link flags: -Wl,-ld_classic.")
+        if("${XCODE_VERSION}" VERSION_GREATER_EQUAL "15.0" AND "${XCODE_VERSION}" VERSION_LESS "15.1")
+            # Xcode 15.0 new linker crashes on weak symbols (114813650), fixed in 15.1.
+            message(STATUS "Xcode ${XCODE_VERSION}: adding -Wl,-ld_classic to work around weak symbol crash.")
             target_link_options(${ENGINE_NAME} PUBLIC -Wl,-ld_classic)
         endif()
 

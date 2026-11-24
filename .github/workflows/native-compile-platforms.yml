@@ -507,7 +507,7 @@ jobs:
       matrix:
         config:
           - { sdk: iphoneos, arch: arm64 }
-          - { sdk: iphonesimulator, arch: x86_64 }
+          - { sdk: iphonesimulator, arch: arm64 }
 
     steps:
       - uses: actions/checkout@v4
@@ -534,7 +534,7 @@ jobs:
           echo "set(CC_USE_VULKAN OFF)" >> build-ios/proj/cfg.cmake
           echo "set(CC_USE_GLES2 OFF)" >> build-ios/proj/cfg.cmake
           echo "set(CC_USE_METAL ON)" >> build-ios/proj/cfg.cmake
-          echo "set(TARGET_IOS_VERSION 12.0)" >> build-ios/proj/cfg.cmake
+          echo "set(TARGET_IOS_VERSION 13.0)" >> build-ios/proj/cfg.cmake
           echo "set(USE_WEBSOCKET_SERVER OFF)" >> build-ios/proj/cfg.cmake
           echo "set(USE_DRAGONBONES OFF)" >> build-ios/proj/cfg.cmake
           echo "set(CMAKE_CXX_STANDARD_REQUIRED OFF)" >> build-ios/proj/cfg.cmake
@@ -548,7 +548,6 @@ jobs:
               -DCMAKE_OSX_ARCHITECTURES=${{ matrix.config.arch }} \
               -DRES_DIR=$RES_DIR \
               -DCOCOS_X_PATH=$NATIVE_ROOT
-          set +e
           #cmake --build . --config Debug -- -quiet -jobs $NUM_OF_CORES -allowProvisioningUpdates CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
           cmake --build . --config Debug -- -jobs $NUM_OF_CORES CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
           echo "Compile iOS Done!"

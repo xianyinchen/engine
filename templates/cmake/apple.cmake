@@ -81,7 +81,7 @@ macro(cc_ios_after_target _target_name)
         MACOSX_DEPLOYMENT_TARGET "${TARGET_IOS_VERSION}"
         XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET "${TARGET_IOS_VERSION}"
         XCODE_ATTRIBUTE_DEVELOPMENT_TEAM "${DEVELOPMENT_TEAM}"
-        OSX_ARCHITECTURES "arm64;x86_64"
+        OSX_ARCHITECTURES "${CMAKE_OSX_ARCHITECTURES}"
         XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "iPhone Developer"
         XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME "AppIcon"
         XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_LAUNCHSTORYBOARD_NAME "LaunchScreen"
@@ -95,12 +95,18 @@ macro(cc_ios_after_target _target_name)
 
     cc_apple_set_launch_type(${CC_EXECUTABLE_NAME})
 
-    # # exclude arm64 arch and specify x86_64 for iphonesimulator by default, this will apply to both target.
-    set(CMAKE_XCODE_ATTRIBUTE_EXCLUDED_ARCHS[sdk=iphonesimulator*] "arm64")
+    # Apply the SDK-specific architecture to the app and the engine.
+    if(CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
+        set(_ios_simulator_arch "arm64")
+        set(CMAKE_XCODE_ATTRIBUTE_EXCLUDED_ARCHS[sdk=iphonesimulator*] "")
+    else()
+        set(_ios_simulator_arch "x86_64")
+        set(CMAKE_XCODE_ATTRIBUTE_EXCLUDED_ARCHS[sdk=iphonesimulator*] "arm64")
+    endif()
     set(CMAKE_XCODE_ATTRIBUTE_ARCHS[sdk=iphoneos*] "arm64")
-    set(CMAKE_XCODE_ATTRIBUTE_ARCHS[sdk=iphonesimulator*] "x86_64")
+    set(CMAKE_XCODE_ATTRIBUTE_ARCHS[sdk=iphonesimulator*] "${_ios_simulator_arch}")
     set(CMAKE_XCODE_ATTRIBUTE_VALID_ARCHS[sdk=iphoneos*] "arm64")
-    set(CMAKE_XCODE_ATTRIBUTE_VALID_ARCHS[sdk=iphonesimulator*] "x86_64")
+    set(CMAKE_XCODE_ATTRIBUTE_VALID_ARCHS[sdk=iphonesimulator*] "${_ios_simulator_arch}")
 
     set(CMAKE_XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2")
 
